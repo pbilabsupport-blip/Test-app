@@ -1,0 +1,50 @@
+.
+├── file_tree.txt
+├── netlify
+│   └── functions
+│       ├── gumroadWebhook.js
+│       ├── sendBrevoOtp.js
+│       └── verifyGumroad.js
+├── package-lock.json
+├── package.json
+├── public
+│   ├── _redirects.txt
+│   ├── index.html
+│   ├── logo191.png
+│   ├── logo192.png
+│   ├── logo512.png
+│   ├── manifest.json
+│   └── service-worker.js
+└── src
+    ├── App.js
+    ├── components
+    │   ├── KiyosakiModal.js
+    │   ├── PwaInstallPrompt.js
+    │   ├── ThemeToggle.js
+    │   ├── ToolHelpModal.js
+    │   └── layout
+    │       ├── AdaptiveHeader.js
+    │       ├── FinancialGlossaryModal.js
+    │       └── SlideOutMenu.js
+    ├── context
+    │   └── AppContext.js
+    ├── features
+    │   ├── auth
+    │   │   ├── ActivationScreen.js
+    │   │   └── SessionManager.js
+    │   └── tools
+    │       └── CashFlowEngine
+    │           ├── CashFlowEngine.js
+    │           └── components
+    │               ├── ActionCenter.js
+    │               ├── CommandModal.js
+    │               ├── Dashboard.js
+    │               └── Statement.js
+    ├── global.css
+    ├── index.js
+    ├── serviceWorkerRegistration.js
+    └── services
+        ├── fingerprint.js
+        └── supabase.js
+
+14 directories, 34 files

@@ -1,0 +1,42 @@
+{
+  "short_name": "PBI Vault",
+  "name": "P.B.I. Labs Financial Vault",
+  "id": "/?source=pwa",
+  "description": "Secure financial analysis and command center.",
+  "categories": ["finance", "business", "productivity"],
+  "icons": [
+    {
+      "src": "/logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/logo512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Desktop Command Center"
+    },
+    {
+      "src": "/logo191.png",
+      "sizes": "320x320",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobile Tactical Asset"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}

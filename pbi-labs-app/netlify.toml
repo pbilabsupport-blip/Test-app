@@ -1,8 +1,16 @@
 [build]
+  # Tells Netlify exactly how to build your React app
   command = "npm run build"
   publish = "build"
-  functions = "netlify/functions"
 
+# THE API BRIDGE: This forces Gumroad's ping to go to your hidden function
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+  force = true
+
+# THE APP ROUTER: Ensures your main React program always displays correctly
 [[redirects]]
   from = "/*"
   to = "/index.html"

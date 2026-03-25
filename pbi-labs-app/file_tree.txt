@@ -5,10 +5,10 @@
 │       ├── gumroadWebhook.js
 │       ├── sendBrevoOtp.js
 │       └── verifyGumroad.js
+├── netlify.toml
 ├── package-lock.json
 ├── package.json
 ├── public
-│   ├── _redirects.txt
 │   ├── index.html
 │   ├── logo191.png
 │   ├── logo192.png

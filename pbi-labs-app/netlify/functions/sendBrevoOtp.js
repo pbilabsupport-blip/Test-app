@@ -6,28 +6,36 @@ exports.handler = async (event) => {
   try {
     const { licenseKey } = JSON.parse(event.body);
 
-    // 1. The Asset Verification: Ask our own Supabase Vault instead of Gumroad
-    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    // BULLETPROOFING: Trim invisible spaces that cause database mismatches
+    const cleanLicenseKey = licenseKey ? licenseKey.trim() : '';
+
+    // BULLETPROOFING: Catch-all for environment variables
+    const dbUrl = process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL;
+    const dbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    const supabase = createClient(dbUrl, dbKey);
+    
     const { data: license, error: dbError } = await supabase
       .from('licenses')
       .select('*')
-      .eq('license_key', licenseKey)
+      .eq('license_key', cleanLicenseKey)
       .single();
 
-    if (dbError || !license || !license.is_active) {
-      throw new Error('License Inactive or Terminated');
-    }
+    // EXACT DIAGNOSTICS: Stop guessing why it fails
+    if (dbError) throw new Error(`Database Error: ${dbError.message}`);
+    if (!license) throw new Error('License not found in database.');
+    if (license.is_active !== true) throw new Error('License exists but is marked as INACTIVE in Supabase.');
 
     const userEmail = license.email;
 
-    // 2. Generate OTP (15 Min Expiry)
+    // Generate OTP (15 Min Expiry)
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiryDate = new Date(Date.now() + 15 * 60000).toISOString();
 
-    // 3. Save OTP to Supabase using the Master Key
-    await supabase.from('licenses').update({ otp_code: otpCode, otp_expiry: expiryDate }).eq('license_key', licenseKey);
+    // Save OTP to Supabase
+    await supabase.from('licenses').update({ otp_code: otpCode, otp_expiry: expiryDate }).eq('license_key', cleanLicenseKey);
 
-    // 4. Dispatch Email via Brevo
+    // Dispatch Email via Brevo
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -50,10 +58,14 @@ exports.handler = async (event) => {
       })
     });
 
-    if (!response.ok) throw new Error('Brevo Email Failed');
+    if (!response.ok) {
+       const brevoError = await response.text();
+       throw new Error(`Brevo API Failed: ${brevoError}`);
+    }
 
     return { statusCode: 200, body: JSON.stringify({ success: true, message: 'OTP Sent' }) };
   } catch (error) {
+    // This exact error will now show in your Netlify log
     return { statusCode: 500, body: JSON.stringify({ success: false, message: error.message }) };
   }
 };

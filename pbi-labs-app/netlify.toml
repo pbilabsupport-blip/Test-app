@@ -1,17 +1,17 @@
 [build]
-  # Tells Netlify exactly how to build your React app
-  command = "npm run build"
+  # CI=false forces Netlify to ignore minor warnings and build the program
+  command = "CI=false npm run build"
   publish = "build"
 
-# THE API BRIDGE: This forces Gumroad's ping to go to your hidden function
+# THE API BRIDGE: Reroutes Gumroad to Supabase
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
   force = true
 
-# THE APP ROUTER: Ensures your main React program always displays correctly
+# THE APP ROUTER: Prevents white screens on refresh
 [[redirects]]
   from = "/*"
   to = "/index.html"
-  status = 200uiki
+  status = 200

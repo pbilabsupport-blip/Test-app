@@ -25,8 +25,13 @@ exports.handler = async (event, context) => {
         return { statusCode: 200, body: 'Ignored: No License Key in payload.' };
     }
 
-    // Gumroad Ping sends 'refunded' as a string "true" or boolean true
-    const isCancellation = payload.refunded === 'true' || payload.refunded === true;
+    // Upgraded Strict Security: Catches refunds, manual cancellations, and failed card payments
+    const isCancellation = 
+      payload.refunded === 'true' || 
+      payload.refunded === true || 
+      !!payload.subscription_ended_at || 
+      !!payload.subscription_cancelled_at || 
+      !!payload.subscription_failed_at;
 
     if (isCancellation) {
       await supabase

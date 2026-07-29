@@ -30,7 +30,7 @@ export default function ActivationScreen({ onLoginSuccess }) {
       // 1. Check Gumroad / Database Verification
       const verification = await verifyGumroadLicense(licenseInput.trim());
       if (!verification.valid) {
-        setErrorMessage(isEs ? 'Licencia inválida o expirada.' : 'Invalid or expired license key.');
+        setErrorMessage(verification.message || (isEs ? 'Licencia inválida o expirada.' : 'Invalid or expired license key.'));
         setLoading(false);
         return;
       }

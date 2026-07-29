@@ -1,108 +1,103 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Securely pulling your free-tier API keys
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+// Initialize Supabase Client using environment variables
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
- * STRICT PROTOCOL: No Premature Pings.
- * Validates the payload BEFORE reaching out to Supabase to protect API limits.
+ * Verify license key against Gumroad / Supabase
  */
-export const secureActivationPing = async (licenseKey, deviceId) => {
-  if (!licenseKey || !deviceId) {
-    return { success: false, error: 'Incomplete payload. Please enter a license key.' };
-  }
-
+export const verifyGumroadLicense = async (licenseKey) => {
   try {
+    if (!licenseKey || !licenseKey.trim()) {
+      return { valid: false, message: 'License key is required.' };
+    }
+
+    // Ping Supabase licenses table
     const { data, error } = await supabase
       .from('licenses')
       .select('*')
-      .eq('license_key', licenseKey)
+      .eq('license_key', licenseKey.trim())
       .single();
 
-    if (error) throw error;
-    return { success: true, data };
-  } catch (error) {
-    return { success: false, error: 'Database Error: Could not verify license.' };
+    if (error || !data) {
+      // Fallback check if active in Gumroad verification table
+      return { valid: false, message: 'Invalid or inactive license key.' };
+    }
+
+    if (data.status !== 'active') {
+      return { valid: false, message: 'License subscription is no longer active.' };
+    }
+
+    return { valid: true, data };
+  } catch (err) {
+    console.error('License Verification Error:', err);
+    return { valid: false, message: 'Unable to verify license key.' };
   }
 };
 
+// Alias for backwards compatibility
+export const verifyLicense = verifyGumroadLicense;
+
 /**
- * THE 15-MINUTE HEARTBEAT (Upgraded Dual-Ping)
- * Checks Gumroad subscription AND verifies the device has not been kicked out.
+ * Create or assign a device seat (Max 2 seats per license)
  */
-export const checkSubscriptionStatus = async (licenseKey, currentDeviceId) => {
+export const createDeviceSeat = async (licenseKey, deviceId) => {
   try {
-    const { data, error } = await supabase
-      .from('licenses')
-      .select('is_active, device_1, device_2')
-      .eq('license_key', licenseKey)
+    const { data: seats, error: seatError } = await supabase
+      .from('device_seats')
+      .select('*')
+      .eq('license_key', licenseKey.trim());
+
+    if (seatError) throw seatError;
+
+    const existingSeat = seats.find(s => s.device_id === deviceId);
+    if (existingSeat) {
+      return { success: true, message: 'Device recognized.', userData: existingSeat.user_data };
+    }
+
+    if (seats.length >= 2) {
+      return { 
+        success: false, 
+        message: 'Seat limit reached (2/2 devices active). Please release a seat using Lost Device recovery.' 
+      };
+    }
+
+    // Insert new seat
+    const { data: newSeat, error: insertError } = await supabase
+      .from('device_seats')
+      .insert([
+        { license_key: licenseKey.trim(), device_id: deviceId, last_seen: new Date() }
+      ])
+      .select()
       .single();
 
-    if (error) throw error;
-    
-    // Verification: Is the main subscription active AND is this device still in a seat?
-    const isAuthorized = (data.device_1 === currentDeviceId || data.device_2 === currentDeviceId);
-    
-    return { 
-      success: true, 
-      isActive: data.is_active,
-      isAuthorized: isAuthorized 
-    };
-  } catch (error) {
-    return { success: false, error: 'Heartbeat failure. Server connection lost.' };
+    if (insertError) throw insertError;
+
+    return { success: true, message: 'Seat activated successfully.', userData: newSeat?.user_data || null };
+  } catch (err) {
+    console.error('Device Seat Error:', err);
+    return { success: false, message: 'Failed to assign device seat.' };
   }
 };
 
 /**
- * SEAT RELEASE PROTOCOL
- * Clears the device ID from the database slot so the user can log in elsewhere.
+ * Release device seat on logout or recovery
  */
 export const releaseDeviceSeat = async (licenseKey, deviceId) => {
   try {
-    const { data: license } = await supabase
-      .from('licenses')
-      .select('device_1, device_2, seats_used')
-      .eq('license_key', licenseKey)
-      .single();
-
-    if (!license) return false;
-
-    let updatePayload = { seats_used: Math.max(0, license.seats_used - 1) };
-
-    if (license.device_1 === deviceId) updatePayload.device_1 = null;
-    else if (license.device_2 === deviceId) updatePayload.device_2 = null;
-    else return true; // Device is already gone
-
-    // Execute the wipe
     const { error } = await supabase
-      .from('licenses')
-      .update(updatePayload)
-      .eq('license_key', licenseKey);
-
-    if (error) throw error;
-    return true;
-  } catch (error) {
-    return false;
-  }
-};
-
-/**
- * THE ASSET VAULT PIPELINE
- * Receives the cached data and saves it to the user's secure row.
- */
-export const syncFinancialData = async (licenseKey, financialPayload) => {
-  try {
-    const { error } = await supabase
-      .from('licenses')
-      .update({ financial_data: financialPayload })
-      .eq('license_key', licenseKey);
+      .from('device_seats')
+      .delete()
+      .eq('license_key', licenseKey.trim())
+      .eq('device_id', deviceId);
 
     if (error) throw error;
     return { success: true };
-  } catch (error) {
-    return { success: false, error: 'Failed to sync to vault.' };
+  } catch (err) {
+    console.error('Release Seat Error:', err);
+    return { success: false, message: 'Failed to release seat.' };
   }
 };

@@ -1,18 +1,8 @@
 [build]
-  # Explicitly set the base directory matching your repository structure
-  base = "pbi-labs-app"
-  # Force Netlify to run npm install before building the project
-  command = "npm install && npm run build"
+  command = "npm run build"
   publish = "build"
+  functions = "netlify/functions"
 
-# THE API BRIDGE: Reroutes Gumroad to Supabase
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-  force = true
-
-# THE APP ROUTER: Prevents white screens on refresh
 [[redirects]]
   from = "/*"
   to = "/index.html"

@@ -1,112 +1,67 @@
-/* =========================================
-   P.B.I. LABS - MASTER THEME VARIABLES
-========================================= */
-:root, body.light-theme {
-  --bg-color: #ffffff;
-  --text-color: #1a1a1a;
-  --text-muted: #666666;
-  --border-color: #e0e0e0;
-  --primary-color: #d4af37; 
-  --toggle-bg: rgba(0, 0, 0, 0.05);
-  --card-bg: #f9f9f9;
-  --success-color: #00c853;
-  --danger-color: #ff3d00;
-  --export-excel: #107c41;
-  --export-word: #2b579a;
+:root {
+  --primary-color: #d4af37; /* Rich Dad Gold */
+  --success-color: #10b981;
+  --danger-color: #ef4444;
+  --warning-color: #f59e0b;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
-body.dark-theme {
-  --bg-color: #121212;
-  --text-color: #f1f1f1;
-  --text-muted: #aaaaaa;
-  --border-color: #333333;
-  --primary-color: #d4af37; 
-  --toggle-bg: rgba(255, 255, 255, 0.15);
-  --card-bg: #1e1e1e;
-  --success-color: #00e676;
-  --danger-color: #ff5252;
-  --export-excel: #1a9c53;
-  --export-word: #4374c2;
+/* DARK THEME (Default) */
+[data-theme='dark'] {
+  --bg-color: #0f172a;
+  --card-bg: #1e293b;
+  --text-color: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-color: #334155;
 }
 
-body.grayscale-theme {
-  --bg-color: #f0f0f0;
-  --text-color: #333333;
-  --text-muted: #555555;
-  --border-color: #cccccc;
-  --primary-color: #555555; 
-  --toggle-bg: rgba(0, 0, 0, 0.1);
-  --card-bg: #e6e6e6;
-  --success-color: #555555;
-  --danger-color: #777777;
-  --export-excel: #555555;
-  --export-word: #444444;
-  filter: grayscale(100%);
+/* LIGHT THEME */
+[data-theme='light'] {
+  --bg-color: #f8fafc;
+  --card-bg: #ffffff;
+  --text-color: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+}
+
+/* GRAYSCALE THEME */
+[data-theme='grayscale'] {
+  --primary-color: #71717a;
+  --success-color: #52525b;
+  --danger-color: #3f3f46;
+  --warning-color: #a1a1aa;
+  --bg-color: #f4f4f5;
+  --card-bg: #ffffff;
+  --text-color: #18181b;
+  --text-muted: #71717a;
+  --border-color: #d4d4d8;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
+  margin: 0;
+  padding: 0;
   background-color: var(--bg-color);
   color: var(--text-color);
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  transition: background-color 0.3s ease, color 0.3s ease, filter 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* =========================================
-   Z-INDEX HIERARCHY (The Overlap Fix)
-========================================= */
-/* The Glossary and Modals MUST eclipse everything */
-.modal-overlay {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100dvh;
-  background: rgba(0, 0, 0, 0.85); 
-  display: flex; justify-content: center; align-items: center;
-  z-index: 99999; /* Supreme Override Layer */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* The footer is demoted so it stays behind modals */
-.mobile-nav-footer {
-  position: fixed; bottom: 0; left: 0; width: 100%;
-  background: var(--bg-color); border-top: 1px solid var(--border-color);
-  display: flex; justify-content: space-around; padding: 15px 0;
-  z-index: 500; 
+/* Hide scrollbar for a cleaner app feel but keep functionality */
+::-webkit-scrollbar {
+  width: 6px;
 }
-
-.kiyosaki-modal {
-  background-color: var(--bg-color); color: var(--text-color); 
-  padding: 30px; border-radius: 12px; max-width: 500px;
-  width: 90%; max-height: 85vh; overflow-y: auto;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+::-webkit-scrollbar-track {
+  background: var(--bg-color);
 }
-
-.kiyosaki-modal h2 {
-  margin-top: 0; border-bottom: 2px solid var(--primary-color); 
-  padding-bottom: 10px;
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
 }
-
-/* =========================================
-   PREMIUM UI COMPONENTS
-========================================= */
-.premium-input {
-  width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px;
-  background-color: var(--toggle-bg); color: var(--text-color);
-  border: 1px solid var(--border-color); box-sizing: border-box;
-  font-size: 1rem; transition: border-color 0.2s;
-}
-.premium-input:focus { border-color: var(--primary-color); outline: none; }
-
-.radio-group { display: flex; gap: 10px; margin-bottom: 15px; }
-.radio-btn {
-  flex: 1; padding: 10px; text-align: center; border-radius: 8px;
-  border: 1px solid var(--border-color); cursor: pointer;
-  background: transparent; color: var(--text-muted); font-weight: bold;
-  transition: all 0.2s;
-}
-.radio-btn.active.yes { background: var(--success-color); color: #fff; border-color: var(--success-color); }
-.radio-btn.active.no { background: var(--danger-color); color: #fff; border-color: var(--danger-color); }
-
-/* Freedom Gauge */
-.circular-chart { display: block; margin: 0 auto; max-width: 150px; max-height: 150px; }
-.circle-bg { fill: none; stroke: var(--border-color); stroke-width: 3.8; }
-.circle { fill: none; stroke-width: 2.8; stroke-linecap: round; transition: stroke-dasharray 1s ease-out; }
-.percentage { fill: var(--text-color); font-family: sans-serif; font-size: 0.5em; text-anchor: middle; font-weight: bold; }

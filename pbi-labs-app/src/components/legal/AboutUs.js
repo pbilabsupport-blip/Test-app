@@ -4,11 +4,22 @@ import { useAppContext } from '../../context/AppContext';
 export default function AboutUs() {
   const { language } = useAppContext();
   const isEs = language === 'es';
+
   return (
-    <div style={{ textAlign: 'left', lineHeight: '1.6' }}>
-      <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '12px' }}>{isEs ? 'Acerca de P.B.I. Labs' : 'About P.B.I. Labs'}</h2>
-      <p style={{ marginBottom: '12px' }}>{isEs ? 'P.B.I. Labs desarrolla herramientas de gestión financiera intuitivas y accesibles diseñadas para ayudar a las personas comunes a dominar el flujo de efectivo y lograr la libertad financiera.' : 'P.B.I. Labs develops intuitive, accessible financial management tools designed to help everyday individuals master cash flow and achieve financial freedom.'}</p>
-      <p>{isEs ? 'Basado en los principios de educación financiera y construcción sólida de activos, nuestro software permite a los usuarios rastrear ingresos pasivos, controlar gastos y eliminar la deuda.' : 'Grounded in principles of financial literacy and sound asset building, our software enables users to track passive income, control expenses, and eliminate debt overhead.'}</p>
+    <div style={{ maxWidth: '800px', margin: '40px auto', padding: '40px', background: 'var(--card-bg)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+      <h2 style={{ color: 'var(--primary-color)', marginBottom: '20px' }}>
+        {isEs ? 'Acerca de P.B.I. Labs' : 'About P.B.I. Labs'}
+      </h2>
+      <p style={{ lineHeight: '1.6', color: 'var(--text-color)', marginBottom: '15px' }}>
+        {isEs 
+          ? 'P.B.I. Labs es un sistema operativo financiero seguro diseñado bajo la mentalidad de Rich Dad (Robert Kiyosaki) para transformar activos, controlar el flujo de caja y alcanzar la libertad financiera.'
+          : 'P.B.I. Labs is a secure financial operating system built under the Rich Dad (Robert Kiyosaki) mindset to transform assets, master cash flow, and achieve financial freedom.'}
+      </p>
+      <p style={{ lineHeight: '1.6', color: 'var(--text-muted)' }}>
+        {isEs 
+          ? 'Nuestra arquitectura opera bajo un modelo de eficiencia total de cero costos generales, protegiendo sus datos y licencias de manera profesional.'
+          : 'Our architecture operates under a zero-overhead efficiency model, professionally safeguarding your data and licenses.'}
+      </p>
     </div>
   );
 }

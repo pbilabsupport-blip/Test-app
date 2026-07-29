@@ -1,178 +1,95 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useAppContext } from './context/AppContext';
+import React, { useState } from 'react';
+import { AppProvider, useAppContext } from './context/AppContext';
 import ActivationScreen from './features/auth/ActivationScreen';
-import { CashFlowEngine } from './features/tools/CashFlowEngine/CashFlowEngine';
+import CashFlowEngine from './features/tools/CashFlowEngine/CashFlowEngine';
 import AdaptiveHeader from './components/layout/AdaptiveHeader';
-import { PwaInstallPrompt } from './components/PwaInstallPrompt';
-import { startSessionHeartbeat, resumeSession } from './features/auth/SessionManager';
-import { releaseDeviceSeat } from './services/supabase';
-import { FaExclamationTriangle, FaTimes, FaSpinner } from 'react-icons/fa';
 
-export default function App() {
-  const { language, theme } = useAppContext(); 
+function MainRouter() {
+  const { authSession, loading, language } = useAppContext();
+  const [currentView, setCurrentView] = useState('dashboard');
+  const isEs = language === 'es';
 
-  const [isInitializing, setIsInitializing] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userTier, setUserTier] = useState('public'); 
-  const [licenseKey, setLicenseKey] = useState('');
-  const [deviceId, setDeviceId] = useState('');
-  const [financialData, setFinancialData] = useState(null);
-  const [killSignalMessage, setKillSignalMessage] = useState('');
-  const [activeAlerts, setActiveAlerts] = useState([]);
-
-  useEffect(() => {
-    document.body.className = `${theme}-theme`;
-  }, [theme]);
-
-  const runAssistantScan = useCallback((data) => {
-    if (!data) return;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); 
-    const alerts = [];
-
-    const checkDates = (items, typeName) => {
-      (items || []).forEach(item => {
-        if (item.nextDate) {
-          const [year, month, day] = item.nextDate.split('-');
-          const targetDate = new Date(year, month - 1, day);
-          const diffTime = targetDate - today;
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          
-          if (diffDays >= 0 && diffDays <= 3) {
-            alerts.push({
-              id: item.id,
-              message: language === 'es' 
-                ? `Atención: ${item.name} (${typeName}) programado para los próximos ${diffDays} días.` 
-                : `Attention: ${item.name} (${typeName}) scheduled within the next ${diffDays} days.`,
-              type: typeName === 'Payment' ? 'danger' : 'success'
-            });
-          }
-        }
-      });
-    };
-
-    checkDates(data.liabilities, 'Payment');
-    checkDates(data.assets, 'Payday');
-    setActiveAlerts(alerts);
-  }, [language]);
-
-  useEffect(() => {
-    const initializePersistentSession = async () => {
-      const result = await resumeSession();
-      if (result.success) {
-        setLicenseKey(result.licenseKey || '');
-        setDeviceId(result.deviceId);
-        setFinancialData(result.financialData);
-        setIsAuthenticated(true);
-        setUserTier(result.tier || 'free'); 
-        runAssistantScan(result.financialData);
-      }
-      setIsInitializing(false);
-    };
-    initializePersistentSession();
-  }, [runAssistantScan]);
-
-  const handleLoginSuccess = (key, devId, data, tier = 'free') => {
-    if (key) localStorage.setItem('pbi_license_key', key);
-    localStorage.setItem('pbi_user_tier', tier);
-    setLicenseKey(key || '');
-    setDeviceId(devId);
-    setFinancialData(data);
-    setIsAuthenticated(true);
-    setUserTier(tier);
-    runAssistantScan(data);
-  };
-
-  const handleLogout = async () => {
-    if (licenseKey && deviceId) await releaseDeviceSeat(licenseKey, deviceId);
-    localStorage.removeItem('pbi_license_key'); 
-    localStorage.removeItem('pbi_user_tier');
-    setIsAuthenticated(false);
-    setUserTier('public');
-    setLicenseKey('');
-    setDeviceId('');
-    setFinancialData(null);
-    window.location.reload();
-  };
-
-  useEffect(() => {
-    let cleanupHeartbeat;
-    if (isAuthenticated && deviceId) {
-      cleanupHeartbeat = startSessionHeartbeat(licenseKey, deviceId, userTier, (reason) => {
-        setKillSignalMessage(reason); 
-        handleLogout();
-      });
-    }
-    return () => { if (cleanupHeartbeat) cleanupHeartbeat(); };
-  }, [isAuthenticated, licenseKey, deviceId, userTier]);
-
-  const dismissAlert = (id) => {
-    setActiveAlerts(activeAlerts.filter(a => a.id !== id));
-  };
-
-  if (isInitializing) {
+  if (loading) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-color)', color: 'var(--primary-color)' }}>
-        <FaSpinner size={50} style={{ animation: 'spin 1s linear infinite' }} />
-        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-color)', color: 'var(--text-color)' }}>
+        <h2>{isEs ? 'Cargando Bóveda de P.B.I. Labs...' : 'Loading P.B.I. Labs Vault...'}</h2>
       </div>
     );
   }
 
+  if (!authSession || !authSession.success) {
+    return <ActivationScreen />;
+  }
+
+  const renderView = () => {
+    switch (currentView) {
+      case 'about':
+        return (
+          <div style={{ maxWidth: '800px', margin: '40px auto', padding: '40px', background: 'var(--card-bg)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <h2 style={{ color: 'var(--primary-color)', marginBottom: '20px' }}>{isEs ? 'Acerca de P.B.I. Labs' : 'About P.B.I. Labs'}</h2>
+            <p style={{ lineHeight: '1.6', color: 'var(--text-color)' }}>
+              {isEs 
+                ? 'P.B.I. Labs es un sistema operativo financiero seguro diseñado bajo la mentalidad de Rich Dad (Robert Kiyosaki) para transformar activos y controlar el flujo de caja hacia la libertad financiera.'
+                : 'P.B.I. Labs is a secure financial operating system built under the Rich Dad (Robert Kiyosaki) mindset to transform assets and control cash flow toward financial freedom.'}
+            </p>
+          </div>
+        );
+      case 'privacy':
+        return (
+          <div style={{ maxWidth: '800px', margin: '40px auto', padding: '40px', background: 'var(--card-bg)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <h2 style={{ color: 'var(--primary-color)', marginBottom: '20px' }}>{isEs ? 'Política de Privacidad' : 'Privacy Policy'}</h2>
+            <p style={{ lineHeight: '1.6', color: 'var(--text-color)' }}>
+              {isEs 
+                ? 'Sus datos se almacenan de forma segura en Supabase y se procesan localmente en su dispositivo mediante huella digital para proteger su licencia de Gumroad.'
+                : 'Your data is securely stored in Supabase and processed locally on your device via digital fingerprinting to protect your Gumroad license.'}
+            </p>
+          </div>
+        );
+      case 'terms':
+        return (
+          <div style={{ maxWidth: '800px', margin: '40px auto', padding: '40px', background: 'var(--card-bg)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <h2 style={{ color: 'var(--primary-color)', marginBottom: '20px' }}>{isEs ? 'Términos de Servicio' : 'Terms of Service'}</h2>
+            <p style={{ lineHeight: '1.6', color: 'var(--text-color)' }}>
+              {isEs 
+                ? 'Cada licencia de suscripción de Gumroad admite un máximo de 2 asientos de dispositivos activos con verificación por latido del servidor.'
+                : 'Each Gumroad subscription license supports a maximum of 2 active device seats with server-side heartbeat verification.'}
+            </p>
+          </div>
+        );
+      case 'contact':
+        return (
+          <div style={{ maxWidth: '800px', margin: '40px auto', padding: '40px', background: 'var(--card-bg)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <h2 style={{ color: 'var(--primary-color)', marginBottom: '20px' }}>{isEs ? 'Contáctenos' : 'Contact Us'}</h2>
+            <p style={{ lineHeight: '1.6', color: 'var(--text-color)' }}>
+              {isEs 
+                ? 'Para asistencia de licencias, utilice la función de recuperación por OTP en la pantalla de activación.'
+                : 'For licensing support, use the OTP recovery feature on the activation screen.'}
+            </p>
+          </div>
+        );
+      case 'dashboard':
+      default:
+        return <CashFlowEngine />;
+    }
+  };
+
   return (
-    <Router>
-      <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
-        <AdaptiveHeader isAuthenticated={isAuthenticated} userTier={userTier} onLogout={handleLogout} />
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-color)', color: 'var(--text-color)' }}>
+      <AdaptiveHeader setCurrentView={setCurrentView} />
+      <main style={{ flex: 1, padding: '20px' }}>
+        {renderView()}
+      </main>
+      <footer style={{ textAlign: 'center', padding: '15px', fontSize: '0.75rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)' }}>
+        powered by P.B.I. Labs
+      </footer>
+    </div>
+  );
+}
 
-        <Routes>
-          <Route path="/" element={
-            !isAuthenticated ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-                {killSignalMessage && (
-                    <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#ff4444', color: 'white', borderRadius: '8px', fontWeight: 'bold' }}>
-                        {killSignalMessage}
-                    </div>
-                )}
-                <ActivationScreen onLoginSuccess={handleLoginSuccess} />
-              </div>
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )
-          } />
-
-          <Route path="/dashboard" element={
-            isAuthenticated ? (
-              <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                {userTier === 'free' && (
-                  <div style={{ width: '100%', padding: '15px', backgroundColor: 'var(--card-bg)', textAlign: 'center', borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                    <span>[ Google AdSense Banner Space — Upgrade to Pro for Ad-Free Experience ]</span>
-                  </div>
-                )}
-
-                <div style={{ padding: '10px 20px', boxSizing: 'border-box' }}>
-                  {activeAlerts.map(alert => (
-                    <div key={alert.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: alert.type === 'danger' ? 'rgba(255, 68, 68, 0.1)' : 'rgba(0, 230, 118, 0.1)', borderLeft: `4px solid ${alert.type === 'danger' ? '#ff4444' : '#00e676'}`, color: 'var(--text-color)', padding: '12px 20px', borderRadius: '6px', marginBottom: '10px' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                        <FaExclamationTriangle color={alert.type === 'danger' ? '#ff4444' : '#00e676'} /> {alert.message}
-                      </span>
-                      <button onClick={() => dismissAlert(alert.id)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><FaTimes /></button>
-                    </div>
-                  ))}
-                </div>
-
-                <main style={{ flex: 1, padding: '10px 20px', width: '100%', boxSizing: 'border-box' }}>
-                  <CashFlowEngine licenseKey={licenseKey} userTier={userTier} initialData={financialData} onDataChange={runAssistantScan} />
-                </main>
-              </div>
-            ) : (
-              <Navigate to="/" replace />
-            )
-          } />
-        </Routes>
-        
-        <PwaInstallPrompt />
-      </div>
-    </Router>
+export default function App() {
+  return (
+    <AppProvider>
+      <MainRouter />
+    </AppProvider>
   );
 }

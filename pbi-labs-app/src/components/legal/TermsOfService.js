@@ -4,11 +4,17 @@ import { useAppContext } from '../../context/AppContext';
 export default function TermsOfService() {
   const { language } = useAppContext();
   const isEs = language === 'es';
+
   return (
-    <div style={{ textAlign: 'left', lineHeight: '1.6' }}>
-      <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '12px' }}>{isEs ? 'Términos de Servicio' : 'Terms of Service'}</h2>
-      <p style={{ marginBottom: '12px' }}>{isEs ? 'Al acceder al software proporcionado por P.B.I. Labs, usted acepta cumplir con los términos de licencia activos, incluidas las limitaciones de asientos (máximo 2 dispositivos por suscripción activa).' : 'By accessing software provided by P.B.I. Labs, you agree to abide by active licensing terms, including seat limitations (2 devices maximum per active subscription).'}</p>
-      <p>{isEs ? 'La distribución no autorizada o la ingeniería inversa de las claves de acceso resultará en la revocación automatizada del acceso a través de nuestro marco de seguridad.' : 'Unauthorized distribution or reversal of access keys will result in automated revocation of access through our security framework.'}</p>
+    <div style={{ maxWidth: '800px', margin: '40px auto', padding: '40px', background: 'var(--card-bg)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+      <h2 style={{ color: 'var(--primary-color)', marginBottom: '20px' }}>
+        {isEs ? 'Términos de Servicio' : 'Terms of Service'}
+      </h2>
+      <p style={{ lineHeight: '1.6', color: 'var(--text-color)', marginBottom: '15px' }}>
+        {isEs 
+          ? 'Cada licencia de suscripción de Gumroad admite un límite estricto de 2 asientos de dispositivos activos con verificación automática por latido del servidor y validación de suscripción en tiempo real.'
+          : 'Each Gumroad subscription license enforces a strict maximum limit of 2 active device seats with automated server-side heartbeat verification and real-time subscription validation.'}
+      </p>
     </div>
   );
 }

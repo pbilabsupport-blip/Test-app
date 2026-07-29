@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from './context/AppContext';
 import { ActivationScreen } from './features/auth/ActivationScreen';
 import { CashFlowEngine } from './features/tools/CashFlowEngine/CashFlowEngine';
-import { AdaptiveHeader } from './components/layout/AdaptiveHeader';
+import  AdaptiveHeader  from './components/layout/AdaptiveHeader';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { startSessionHeartbeat, resumeSession } from './features/auth/SessionManager';
 import { releaseDeviceSeat } from './services/supabase';

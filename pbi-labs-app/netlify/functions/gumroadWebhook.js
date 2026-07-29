@@ -6,7 +6,6 @@ exports.handler = async (event, context) => {
   try {
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-    // Decode Netlify's Base64 scrambling
     const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf-8') : event.body;
 
     let payload;
@@ -20,12 +19,10 @@ exports.handler = async (event, context) => {
     const email = payload.email;
     const licenseKey = payload.license_key;
 
-    // If there is no license key, it's not a software sale. Ignore it.
     if (!licenseKey) {
         return { statusCode: 200, body: 'Ignored: No License Key in payload.' };
     }
 
-    // Upgraded Strict Security: Catches refunds, manual cancellations, and failed card payments
     const isCancellation = 
       payload.refunded === 'true' || 
       payload.refunded === true || 
@@ -39,19 +36,35 @@ exports.handler = async (event, context) => {
         .update({ is_active: false, device_1: null, device_2: null, seats_used: 0 })
         .eq('license_key', licenseKey);
         
+      await supabase
+        .from('device_seats')
+        .delete()
+        .eq('license_key', licenseKey);
+
       return { statusCode: 200, body: 'Subscription Terminated.' };
     } else {
-      // New Purchase or Test Purchase Injection
-      await supabase
+      // SAFE UPSERT: Only initializes default seats if the record is brand new. Prevents monthly renewal seat wipes!
+      const { data: existingLicense } = await supabase
         .from('licenses')
-        .upsert({ 
-          email: email, 
-          license_key: licenseKey, 
-          is_active: true,
-          seats_used: 0,
-          device_1: null,
-          device_2: null
-        }, { onConflict: 'license_key' }); 
+        .select('*')
+        .eq('license_key', licenseKey)
+        .single();
+
+      if (!existingLicense) {
+        await supabase
+          .from('licenses')
+          .insert({ 
+            email: email, 
+            license_key: licenseKey, 
+            is_active: true,
+            status: 'active'
+          }); 
+      } else {
+        await supabase
+          .from('licenses')
+          .update({ is_active: true, status: 'active', email: email || existingLicense.email })
+          .eq('license_key', licenseKey);
+      }
 
       return { statusCode: 200, body: 'License Injected Successfully.' };
     }

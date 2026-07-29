@@ -2,7 +2,7 @@ import FingerprintJS from '@fingerprintjs/fingerprintjs';
 
 let fpPromise = null;
 
-export const getFingerprint = async () => {
+const getFingerprint = async () => {
   try {
     if (!fpPromise) {
       fpPromise = FingerprintJS.load();

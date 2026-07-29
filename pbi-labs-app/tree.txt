@@ -1,0 +1,61 @@
+.
+├── netlify
+│   └── functions
+│       ├── gumroadWebhook.js
+│       ├── sendBrevoOtp.js
+│       └── verifyGumroad.js
+├── netlify.toml
+├── package-lock.json
+├── package.json
+├── public
+│   ├── index.html
+│   ├── logo191.png
+│   ├── logo192.png
+│   ├── logo512.png
+│   ├── manifest.json
+│   └── service-worker.js
+├── src
+│   ├── App.js
+│   ├── components
+│   │   ├── KiyosakiModal.js
+│   │   ├── PwaInstallPrompt.js
+│   │   ├── ThemeToggle.js
+│   │   ├── ToolHelpModal.js
+│   │   ├── layout
+│   │   │   ├── AdaptiveHeader.js
+│   │   │   ├── DashboardMenu.js
+│   │   │   ├── FinancialGlossaryModal.js
+│   │   │   └── PublicMenu.js
+│   │   └── legal
+│   │       ├── AboutUs.js
+│   │       ├── ContactUs.js
+│   │       ├── CookieConsent.js
+│   │       ├── PrivacyPolicy.js
+│   │       └── TermsOfService.js
+│   ├── context
+│   │   └── AppContext.js
+│   ├── features
+│   │   ├── auth
+│   │   │   ├── ActivationScreen.js
+│   │   │   └── SessionManager.js
+│   │   └── tools
+│   │       └── CashFlowEngine
+│   │           ├── CashFlowEngine.js
+│   │           └── components
+│   │               ├── ActionCenter.js
+│   │               ├── CommandModal.js
+│   │               ├── Dashboard.js
+│   │               └── Statement.js
+│   ├── global.css
+│   ├── hooks
+│   │   ├── usePushNotifications.js
+│   │   └── useVoiceCommand.js
+│   ├── index.js
+│   ├── serviceWorkerRegistration.js
+│   └── services
+│       ├── CommunicationHub.js
+│       ├── fingerprint.js
+│       └── supabase.js
+└── tree.txt
+
+16 directories, 43 files

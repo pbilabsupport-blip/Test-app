@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAppContext } from './context/AppContext';
-import ActivationScreen from './features/auth/ActivationScreen'; // Fixed: Changed from named import { ActivationScreen } to default import
+import ActivationScreen from './features/auth/ActivationScreen';
 import { CashFlowEngine } from './features/tools/CashFlowEngine/CashFlowEngine';
 import AdaptiveHeader from './components/layout/AdaptiveHeader';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { startSessionHeartbeat, resumeSession } from './features/auth/SessionManager';
 import { releaseDeviceSeat } from './services/supabase';
 import { FaExclamationTriangle, FaTimes, FaSpinner } from 'react-icons/fa';
-import './global.css';
 
 export default function App() {
   const { language, theme } = useAppContext(); 
 
-  // Persistent Memory State
   const [isInitializing, setIsInitializing] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userTier, setUserTier] = useState('public'); 
   const [licenseKey, setLicenseKey] = useState('');
   const [deviceId, setDeviceId] = useState('');
   const [financialData, setFinancialData] = useState(null);
@@ -25,7 +25,6 @@ export default function App() {
     document.body.className = `${theme}-theme`;
   }, [theme]);
 
-  // PROACTIVE SCANNER (Wrapped in useCallback to naturally pass compilation checks)
   const runAssistantScan = useCallback((data) => {
     if (!data) return;
     const today = new Date();
@@ -37,7 +36,6 @@ export default function App() {
         if (item.nextDate) {
           const [year, month, day] = item.nextDate.split('-');
           const targetDate = new Date(year, month - 1, day);
-          
           const diffTime = targetDate - today;
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
           
@@ -59,35 +57,39 @@ export default function App() {
     setActiveAlerts(alerts);
   }, [language]);
 
-  // THE SILENT AUTO-LOGIN ENGINE
   useEffect(() => {
     const initializePersistentSession = async () => {
       const result = await resumeSession();
       if (result.success) {
-        setLicenseKey(result.licenseKey);
+        setLicenseKey(result.licenseKey || '');
         setDeviceId(result.deviceId);
         setFinancialData(result.financialData);
         setIsAuthenticated(true);
+        setUserTier(result.tier || 'free'); 
         runAssistantScan(result.financialData);
       }
-      setIsInitializing(false); // Drop the loading screen once verified
+      setIsInitializing(false);
     };
     initializePersistentSession();
   }, [runAssistantScan]);
 
-  const handleLoginSuccess = (key, devId, data) => {
-    localStorage.setItem('pbi_license_key', key); // Write to persistent memory
-    setLicenseKey(key);
+  const handleLoginSuccess = (key, devId, data, tier = 'free') => {
+    if (key) localStorage.setItem('pbi_license_key', key);
+    localStorage.setItem('pbi_user_tier', tier);
+    setLicenseKey(key || '');
     setDeviceId(devId);
     setFinancialData(data);
     setIsAuthenticated(true);
+    setUserTier(tier);
     runAssistantScan(data);
   };
 
-  const handleLogout = async (message) => {
+  const handleLogout = async () => {
     if (licenseKey && deviceId) await releaseDeviceSeat(licenseKey, deviceId);
-    localStorage.removeItem('pbi_license_key'); // Wipe from persistent memory
+    localStorage.removeItem('pbi_license_key'); 
+    localStorage.removeItem('pbi_user_tier');
     setIsAuthenticated(false);
+    setUserTier('public');
     setLicenseKey('');
     setDeviceId('');
     setFinancialData(null);
@@ -96,63 +98,81 @@ export default function App() {
 
   useEffect(() => {
     let cleanupHeartbeat;
-    if (isAuthenticated && licenseKey && deviceId) {
-      cleanupHeartbeat = startSessionHeartbeat(licenseKey, deviceId, (reason) => {
+    if (isAuthenticated && deviceId) {
+      cleanupHeartbeat = startSessionHeartbeat(licenseKey, deviceId, userTier, (reason) => {
         setKillSignalMessage(reason); 
-        handleLogout(reason);
+        handleLogout();
       });
     }
     return () => { if (cleanupHeartbeat) cleanupHeartbeat(); };
-  }, [isAuthenticated, licenseKey, deviceId]);
+  }, [isAuthenticated, licenseKey, deviceId, userTier]);
 
   const dismissAlert = (id) => {
     setActiveAlerts(activeAlerts.filter(a => a.id !== id));
   };
 
-  // The Loading Vault Door (Prevents login screen flash)
   if (isInitializing) {
     return (
       <div style={{ display: 'flex', minHeight: '100vh', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-color)', color: 'var(--primary-color)' }}>
-        <FaSpinner className="spin-animation" size={50} style={{ animation: 'spin 1s linear infinite' }} />
+        <FaSpinner size={50} style={{ animation: 'spin 1s linear infinite' }} />
         <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
-      
-      {/* Adaptive Header sits on all screens (Shows PublicMenu before activation, DashboardMenu after) */}
-      <AdaptiveHeader isAuthenticated={isAuthenticated} onLogout={() => handleLogout()} />
+    <Router>
+      <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
+        <AdaptiveHeader isAuthenticated={isAuthenticated} userTier={userTier} onLogout={handleLogout} />
 
-      {!isAuthenticated ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-          {killSignalMessage && (
-              <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#ff4444', color: 'white', borderRadius: '8px', fontWeight: 'bold' }}>
-                  {killSignalMessage}
+        <Routes>
+          <Route path="/" element={
+            !isAuthenticated ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+                {killSignalMessage && (
+                    <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#ff4444', color: 'white', borderRadius: '8px', fontWeight: 'bold' }}>
+                        {killSignalMessage}
+                    </div>
+                )}
+                <ActivationScreen onLoginSuccess={handleLoginSuccess} />
               </div>
-          )}
-          <ActivationScreen onLoginSuccess={handleLoginSuccess} />
-        </div>
-      ) : (
-        <>
-          <div style={{ width: '100%', maxWidth: '1000px', margin: '0 auto', padding: '10px 20px', boxSizing: 'border-box' }}>
-            {activeAlerts.map(alert => (
-              <div key={alert.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: alert.type === 'danger' ? 'rgba(255, 68, 68, 0.1)' : 'rgba(0, 230, 118, 0.1)', borderLeft: `4px solid ${alert.type === 'danger' ? '#ff4444' : '#00e676'}`, color: 'var(--text-color)', padding: '12px 20px', borderRadius: '6px', marginBottom: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                  <FaExclamationTriangle color={alert.type === 'danger' ? '#ff4444' : '#00e676'} /> {alert.message}
-                </span>
-                <button onClick={() => dismissAlert(alert.id)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><FaTimes /></button>
-              </div>
-            ))}
-          </div>
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
+          } />
 
-          <main style={{ flex: 1, padding: '10px 20px', maxWidth: '1200px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
-            <CashFlowEngine licenseKey={licenseKey} initialData={financialData} onDataChange={runAssistantScan} />
-          </main>
-        </>
-      )}
-      <PwaInstallPrompt />
-    </div>
+          <Route path="/dashboard" element={
+            isAuthenticated ? (
+              <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                {userTier === 'free' && (
+                  <div style={{ width: '100%', padding: '15px', backgroundColor: 'var(--card-bg)', textAlign: 'center', borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    <span>[ Google AdSense Banner Space — Upgrade to Pro for Ad-Free Experience ]</span>
+                  </div>
+                )}
+
+                <div style={{ padding: '10px 20px', boxSizing: 'border-box' }}>
+                  {activeAlerts.map(alert => (
+                    <div key={alert.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: alert.type === 'danger' ? 'rgba(255, 68, 68, 0.1)' : 'rgba(0, 230, 118, 0.1)', borderLeft: `4px solid ${alert.type === 'danger' ? '#ff4444' : '#00e676'}`, color: 'var(--text-color)', padding: '12px 20px', borderRadius: '6px', marginBottom: '10px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                        <FaExclamationTriangle color={alert.type === 'danger' ? '#ff4444' : '#00e676'} /> {alert.message}
+                      </span>
+                      <button onClick={() => dismissAlert(alert.id)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><FaTimes /></button>
+                    </div>
+                  ))}
+                </div>
+
+                <main style={{ flex: 1, padding: '10px 20px', width: '100%', boxSizing: 'border-box' }}>
+                  <CashFlowEngine licenseKey={licenseKey} userTier={userTier} initialData={financialData} onDataChange={runAssistantScan} />
+                </main>
+              </div>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          } />
+        </Routes>
+        
+        <PwaInstallPrompt />
+      </div>
+    </Router>
   );
 }

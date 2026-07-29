@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useAppContext } from '../../context/AppContext';
 
 export default function CookieConsent() {
   const [isVisible, setIsVisible] = useState(false);
+  const { language } = useAppContext();
+  const isEs = language === 'es';
 
   useEffect(() => {
-    // Check if the user already accepted cookies
     const consent = localStorage.getItem('pbi_cookie_consent');
     if (!consent) {
       setIsVisible(true);
@@ -19,16 +21,14 @@ export default function CookieConsent() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-gray-900 text-white p-4 flex justify-between items-center z-50">
-      <p className="text-sm">
-        We use cookies to serve targeted Google AdSense ads and improve your experience. 
-        By continuing to use this software, you consent to our use of cookies.
+    <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: '#111827', color: '#ffffff', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 50, boxSizing: 'border-box', flexWrap: 'wrap', gap: '12px' }}>
+      <p style={{ fontSize: '0.85rem', margin: 0, lineHeight: '1.4', flex: 1, minWidth: '280px' }}>
+        {isEs 
+          ? 'Utilizamos cookies para publicar anuncios de Google AdSense y mejorar su experiencia. Al continuar utilizando este software, usted acepta nuestro uso de cookies.' 
+          : 'We use cookies to serve targeted Google AdSense ads and improve your experience. By continuing to use this software, you consent to our use of cookies.'}
       </p>
-      <button 
-        onClick={handleAccept} 
-        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded ml-4"
-      >
-        Accept
+      <button onClick={handleAccept} style={{ backgroundColor: '#2563eb', color: '#ffffff', border: 'none', fontWeight: 'bold', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
+        {isEs ? 'Aceptar' : 'Accept'}
       </button>
     </div>
   );

@@ -1,6 +1,6 @@
 [build]
   # CI=false forces Netlify to ignore minor warnings and build the program
-  command = "CI=false npm run build"
+  command = "CI= npm run build"
   publish = "build"
 
 # THE API BRIDGE: Reroutes Gumroad to Supabase

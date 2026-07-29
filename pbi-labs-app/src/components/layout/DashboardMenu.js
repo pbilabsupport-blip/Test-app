@@ -1,30 +1,144 @@
 import React, { useState } from 'react';
+import { useAppContext } from '../../context/AppContext';
+import PrivacyPolicy from '../legal/PrivacyPolicy';
+import TermsOfService from '../legal/TermsOfService';
+import AboutUs from '../legal/AboutUs';
+import ContactUs from '../legal/ContactUs';
 
-export default function DashboardMenu({ onNavigate }) {
+export default function DashboardMenu({ onLogout }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeModal, setActiveModal] = useState(null);
+  const { language } = useAppContext();
+
+  const labels = {
+    tools: language === 'es' ? '☰ Herramientas' : '☰ Tools',
+    sectionTools: language === 'es' ? 'HERRAMIENTAS' : 'FINANCIAL TOOLS',
+    sectionSupport: language === 'es' ? 'SOPORTE Y LEGAL' : 'SUPPORT & LEGAL',
+    about: language === 'es' ? 'Sobre Nosotros' : 'About Us',
+    privacy: language === 'es' ? 'Privacidad y Términos' : 'Privacy & Terms',
+    contact: language === 'es' ? 'Contacto' : 'Contact Us',
+    logout: language === 'es' ? 'Cerrar Sesión' : 'Log Out',
+    close: language === 'es' ? 'Cerrar' : 'Close'
+  };
+
+  const closeModal = () => setActiveModal(null);
 
   return (
-    <div className="relative">
-      <button onClick={() => setIsOpen(!isOpen)} className="p-2 text-gray-600 focus:outline-none">
-        ☰ Tools
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <button 
+        onClick={() => setIsOpen(!isOpen)} 
+        style={{
+          padding: '8px 14px',
+          backgroundColor: 'var(--card-bg, #ffffff)',
+          color: 'var(--text-color, #111827)',
+          border: '1px solid var(--border-color, #d1d5db)',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontWeight: 'bold',
+          fontSize: '0.9rem'
+        }}
+      >
+        {labels.tools}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 bg-white border rounded shadow-xl z-50 flex flex-col h-full">
-          {/* Main Financial Tools */}
-          <ul className="py-1 flex-grow">
-            <li className="px-4 py-2 font-bold text-gray-400 uppercase text-xs">Financial Tools</li>
-            <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => onNavigate('Dashboard')}>Dashboard</li>
-            <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer" onClick={() => onNavigate('ActionCenter')}>Action Center</li>
-          </ul>
+        <div style={{
+          position: 'absolute',
+          right: 0,
+          top: '110%',
+          width: '220px',
+          backgroundColor: 'var(--card-bg, #ffffff)',
+          border: '1px solid var(--border-color, #e5e7eb)',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          zIndex: 9999,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          {/* Support / AdSense Section */}
+          <div style={{ padding: '8px 12px', fontSize: '0.75rem', fontWeight: 'bold', color: '#9ca3af', backgroundColor: 'var(--bg-color, #f9fafb)' }}>
+            {labels.sectionSupport}
+          </div>
+          <button onClick={() => { setActiveModal('about'); setIsOpen(false); }} style={menuItemStyle}>
+            {labels.about}
+          </button>
+          <button onClick={() => { setActiveModal('privacy'); setIsOpen(false); }} style={menuItemStyle}>
+            {labels.privacy}
+          </button>
+          <button onClick={() => { setActiveModal('contact'); setIsOpen(false); }} style={menuItemStyle}>
+            {labels.contact}
+          </button>
 
-          {/* Separated Legal Section */}
-          <div className="border-t pt-2 pb-1 bg-gray-50">
-            <p className="px-4 py-1 font-bold text-gray-400 uppercase text-xs">Support</p>
-            <li className="px-4 py-2 hover:bg-gray-200 cursor-pointer list-none text-sm" onClick={() => onNavigate('PrivacyPolicy')}>Legal & Privacy</li>
+          {/* Session Section */}
+          <div style={{ borderTop: '1px solid var(--border-color, #e5e7eb)', marginTop: '4px' }}>
+            <button onClick={() => { setIsOpen(false); if (onLogout) onLogout(); }} style={{ ...menuItemStyle, color: '#ef4444', fontWeight: 'bold' }}>
+              {labels.logout}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Overlays */}
+      {activeModal && (
+        <div style={modalBackdropStyle} onClick={closeModal}>
+          <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
+            <div style={{ textAlign: 'right', marginBottom: '10px' }}>
+              <button onClick={closeModal} style={closeButtonStyle}>
+                {labels.close} ✕
+              </button>
+            </div>
+            {activeModal === 'about' && <AboutUs />}
+            {activeModal === 'privacy' && <PrivacyPolicy />}
+            {activeModal === 'contact' && <ContactUs />}
           </div>
         </div>
       )}
     </div>
   );
 }
+
+const menuItemStyle = {
+  padding: '10px 16px',
+  textAlign: 'left',
+  background: 'none',
+  border: 'none',
+  borderBottom: '1px solid var(--border-color, #f3f4f6)',
+  color: 'var(--text-color, #111827)',
+  cursor: 'pointer',
+  fontSize: '0.85rem',
+  width: '100%'
+};
+
+const modalBackdropStyle = {
+  position: 'fixed',
+  top: 0, left: 0, right: 0, bottom: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  zIndex: 10000,
+  padding: '20px'
+};
+
+const modalContentStyle = {
+  backgroundColor: 'var(--card-bg, #ffffff)',
+  color: 'var(--text-color, #111827)',
+  padding: '24px',
+  borderRadius: '12px',
+  maxWidth: '650px',
+  width: '100%',
+  maxHeight: '80vh',
+  overflowY: 'auto',
+  boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+};
+
+const closeButtonStyle = {
+  backgroundColor: '#ef4444',
+  color: '#ffffff',
+  border: 'none',
+  padding: '6px 12px',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  fontWeight: 'bold'
+};

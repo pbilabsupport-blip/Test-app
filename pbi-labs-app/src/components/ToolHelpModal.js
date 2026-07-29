@@ -1,68 +1,112 @@
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
+import { FaTimes, FaShieldAlt, FaKey, FaDesktop } from 'react-icons/fa';
 
-export const ToolHelpModal = ({ isOpen, onClose }) => {
+export default function ToolHelpModal({ onClose }) {
   const { language } = useAppContext();
-
-  if (!isOpen) return null;
+  const isEs = language === 'es';
 
   return (
     <div style={{
-      position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-      backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px', boxSizing: 'border-box'
-    }}>
+      position: 'fixed',
+      top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 10000,
+      padding: '20px'
+    }} onClick={onClose}>
       <div style={{
-        background: 'var(--bg-color)', color: 'var(--text-color)',
-        padding: '30px', borderRadius: '12px', maxWidth: '450px', width: '100%', 
-        border: '1px solid var(--border-color)', textAlign: 'left', boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-        position: 'relative'
-      }}>
+        backgroundColor: 'var(--card-bg, #ffffff)',
+        color: 'var(--text-color, #111827)',
+        padding: '32px',
+        borderRadius: '16px',
+        maxWidth: '600px',
+        width: '100%',
+        maxHeight: '85vh',
+        overflowY: 'auto',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+        position: 'relative',
+        boxSizing: 'border-box',
+        textAlign: 'left'
+      }} onClick={(e) => e.stopPropagation()}>
         
-        <h2 style={{ marginTop: 0, marginBottom: '20px', textAlign: 'center' }}>
-          {language === 'es' ? 'Ayuda de la Bóveda' : 'Vault Help'}
-        </h2>
-        
-        <div style={{ marginBottom: '25px', lineHeight: '1.6', fontSize: '0.95rem' }}>
-          
-          {/* NEW: License Acquisition Section */}
-          <p style={{ marginBottom: '15px' }}>
-            <strong>{language === 'es' ? 'Adquisición de Licencia:' : 'License Acquisition:'}</strong><br/>
-            {language === 'es' 
-              ? 'Si aún no posees una clave de acceso, o si deseas adquirir una licencia adicional, puedes realizar tu compra de forma segura haciendo clic en el botón Comprar Aquí en la pantalla de activación' 
-              : 'Should you not yet possess an access key, or if you wish to acquire an additional license, you may securely purchase one by clicking the Purchase Here button on the activation screen.'}
-          </p>
-
-          {/* UPGRADED: Device Management Section */}
-          <p style={{ marginBottom: '15px' }}>
-            <strong>{language === 'es' ? 'Gestión de Dispositivos:' : 'Device Management:'}</strong><br/>
-            {language === 'es' 
-              ? 'Su clave autorizada desbloquea el acceso para hasta 2 dispositivos. Si alcanza su límite (por ejemplo, al adquirir un equipo nuevo), simplemente ingrese su clave y utilice el botón rojo "Restablecer Asientos" para reasignar su acceso.' 
-              : 'Your authorized key unlocks access for up to 2 devices. Should you reach your limit (e.g., upon acquiring a new computer), simply enter your key and utilize the red "Reset Seats" button to reallocate your access.'}
-          </p>
-
-          {/* UPGRADED: Privacy Section */}
-          <p style={{ marginBottom: '0' }}>
-            <strong>{language === 'es' ? 'Su Privacidad:' : 'Your Privacy:'}</strong><br/>
-            {language === 'es'
-              ? 'Valoramos profundamente su privacidad. Utilizamos una "huella digital" matemática anónima de su hardware estrictamente para gestionar su límite de dispositivos. No rastreamos su ubicación, historial de navegación ni identidad personal. Sus datos siguen siendo exclusivamente suyos.'
-              : 'We deeply value your privacy. We utilize an anonymous mathematical hardware "fingerprint" strictly to manage your device allocation. We do not monitor your location, browsing history, or personal identity. Your data remains exclusively your own.'}
-          </p>
-        </div>
-
-        <button onClick={onClose} className="btn-primary" style={{ width: '100%', padding: '12px', cursor: 'pointer', borderRadius: '6px', fontWeight: 'bold' }}>
-          {language === 'es' ? 'Cerrar' : 'Close'}
+        {/* Close Button */}
+        <button 
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-muted, #6b7280)',
+            cursor: 'pointer',
+            fontSize: '1.2rem',
+            fontWeight: 'bold'
+          }}
+        >
+          <FaTimes />
         </button>
 
-        {/* Kiyosaki Tribute Footer */}
-        <div style={{ marginTop: '25px', paddingTop: '15px', borderTop: '1px solid #666', textAlign: 'center' }}>
-          <p style={{ fontStyle: 'italic', fontSize: '0.8rem', margin: 0, opacity: 0.7 }}>
-            {language === 'es'
-              ? 'Todas las herramientas creadas por P.B.I. Labs están inspiradas en Robert Kiyosaki y sus enseñanzas de "Padre Rico".'
-              : 'All tools created by P.B.I. Labs are inspired by Robert Kiyosaki and his "Rich Dad" teachings.'}
-          </p>
+        {/* Title */}
+        <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <FaShieldAlt color="#d97706" /> {isEs ? 'Centro de Ayuda y Manual del Sistema' : 'System Help & Manual'}
+        </h2>
+
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted, #6b7280)', lineHeight: '1.6', marginBottom: '20px' }}>
+          {isEs 
+            ? 'Este software opera bajo los principios de educación financiera de Robert Kiyosaki (Padre Rico, Padre Pobre), diseñado para automatizar la gestión de activos, pasivos y flujo de efectivo con cero costos operativos.' 
+            : 'This software operates under Robert Kiyosaki\'s Rich Dad financial education principles, designed to automate asset, liability, and cash flow management with zero overhead.'}
+        </p>
+
+        {/* Instructions Sections */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '0.9rem', lineHeight: '1.5' }}>
+          
+          <div style={{ padding: '14px', backgroundColor: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FaKey color="#2563eb" /> {isEs ? '1. Activación y Licenciamiento Pro' : '1. Pro License Activation'}
+            </h3>
+            <p style={{ margin: 0, color: 'var(--text-muted)' }}>
+              {isEs 
+                ? 'Ingrese su clave de licencia de Gumroad para desencriptar la bóveda. El sistema restringe automáticamente el uso a un máximo de 2 dispositivos simultáneos.' 
+                : 'Enter your Gumroad license key to decrypt the vault. The system automatically restricts usage to a maximum of 2 simultaneous devices.'}
+            </p>
+          </div>
+
+          <div style={{ padding: '14px', backgroundColor: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FaDesktop color="#10b981" /> {isEs ? '2. Recuperación por Dispositivo Perdido' : '2. Lost Device Recovery'}
+            </h3>
+            <p style={{ margin: 0, color: 'var(--text-muted)' }}>
+              {isEs 
+                ? 'Si necesita cambiar de dispositivo, utilice la función "¿Dispositivo Perdido?". Se enviará un código OTP de 6 dígitos a su correo vía Brevo que liberará todos los asientos activos al instante.' 
+                : 'If you need to switch devices, use the "Lost Device?" feature. A 6-digit OTP code will be emailed via Brevo to instantly release all active seats.'}
+            </p>
+          </div>
+
+        </div>
+
+        {/* Footer Action */}
+        <div style={{ marginTop: '24px', textAlign: 'right' }}>
+          <button 
+            onClick={onClose}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#4b5563',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '6px',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            {isEs ? 'Entendido' : 'Got it'}
+          </button>
         </div>
 
       </div>
     </div>
   );
-};
+}

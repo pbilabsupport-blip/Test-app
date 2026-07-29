@@ -1,6 +1,8 @@
 [build]
-  # Fixed: Removed the loose space that caused exit code 127
-  command = "CI=true npm run build"
+  # Explicitly set the base directory matching your repository structure
+  base = "pbi-labs-app"
+  # Force Netlify to run npm install before building the project
+  command = "npm install && npm run build"
   publish = "build"
 
 # THE API BRIDGE: Reroutes Gumroad to Supabase

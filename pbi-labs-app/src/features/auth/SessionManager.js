@@ -57,6 +57,23 @@ export const resumeSession = async () => {
   }
 };
 
+export const syncDataToCloud = async (identifier, financialData) => {
+  try {
+    if (!identifier) return { success: false, error: 'No identifier provided' };
+
+    const { error } = await supabase
+      .from('licenses')
+      .update({ financial_data: financialData, updated_at: new Date() })
+      .eq('license_key', identifier.trim());
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error('Cloud sync error:', err.message);
+    return { success: false, error: err.message };
+  }
+};
+
 export const triggerOtpEmail = async (licenseKey) => {
   try {
     const response = await fetch('/.netlify/functions/sendBrevoOtp', {

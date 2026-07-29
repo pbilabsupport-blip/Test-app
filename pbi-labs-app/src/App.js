@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from './context/AppContext';
-import { ActivationScreen } from './features/auth/ActivationScreen';
+import ActivationScreen from './features/auth/ActivationScreen'; // Fixed: Changed from named import { ActivationScreen } to default import
 import { CashFlowEngine } from './features/tools/CashFlowEngine/CashFlowEngine';
 import AdaptiveHeader from './components/layout/AdaptiveHeader';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';

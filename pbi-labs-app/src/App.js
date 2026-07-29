@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from './context/AppContext';
 import { ActivationScreen } from './features/auth/ActivationScreen';
 import { CashFlowEngine } from './features/tools/CashFlowEngine/CashFlowEngine';
-import  AdaptiveHeader  from './components/layout/AdaptiveHeader';
+import AdaptiveHeader from './components/layout/AdaptiveHeader';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { startSessionHeartbeat, resumeSession } from './features/auth/SessionManager';
 import { releaseDeviceSeat } from './services/supabase';
@@ -121,6 +121,10 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
+      
+      {/* Adaptive Header sits on all screens (Shows PublicMenu before activation, DashboardMenu after) */}
+      <AdaptiveHeader isAuthenticated={isAuthenticated} onLogout={() => handleLogout()} />
+
       {!isAuthenticated ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           {killSignalMessage && (
@@ -132,8 +136,6 @@ export default function App() {
         </div>
       ) : (
         <>
-          <AdaptiveHeader onLogout={() => handleLogout()} />
-          
           <div style={{ width: '100%', maxWidth: '1000px', margin: '0 auto', padding: '10px 20px', boxSizing: 'border-box' }}>
             {activeAlerts.map(alert => (
               <div key={alert.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: alert.type === 'danger' ? 'rgba(255, 68, 68, 0.1)' : 'rgba(0, 230, 118, 0.1)', borderLeft: `4px solid ${alert.type === 'danger' ? '#ff4444' : '#00e676'}`, color: 'var(--text-color)', padding: '12px 20px', borderRadius: '6px', marginBottom: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>

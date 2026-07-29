@@ -1,26 +1,33 @@
 // File: src/components/layout/AdaptiveHeader.js
 import React from 'react';
-import ThemeToggle from '../ThemeToggle';
+import { ThemeToggle } from '../ThemeToggle'; // Fixed: Named import wrapped in curly braces
 import PublicMenu from './PublicMenu';
 import DashboardMenu from './DashboardMenu';
 
-export default function AdaptiveHeader({ isAuthenticated, onNavigate }) {
+export default function AdaptiveHeader({ isAuthenticated, onLogout, onNavigate }) {
   return (
-    <header className="flex justify-between items-center p-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm">
+    <header style={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      padding: '12px 20px', 
+      borderBottom: '1px solid var(--border-color, #e5e7eb)',
+      backgroundColor: 'var(--bg-color, #ffffff)'
+    }}>
       {/* Brand Watermark */}
-      <div className="flex items-center space-x-2">
-        <span className="font-bold text-lg text-gray-800 dark:text-white tracking-wide">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--text-color, #111827)' }}>
           P.B.I. Labs
         </span>
       </div>
 
       {/* Controls & Adaptive Menu */}
-      <div className="flex items-center space-x-4">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <ThemeToggle />
         
-        {/* Swaps menus based on whether the user has passed activation */}
+        {/* Swaps menus seamlessly depending on activation state */}
         {isAuthenticated ? (
-          <DashboardMenu onNavigate={onNavigate} />
+          <DashboardMenu onNavigate={onNavigate} onLogout={onLogout} />
         ) : (
           <PublicMenu onNavigate={onNavigate} />
         )}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { verifyGumroadLicense, createDeviceSeat } from '../../services/supabase';
-import { getFingerprint } from '../../services/fingerprint';
+import getFingerprint from '../../services/fingerprint';
 import KiyosakiModal from '../../components/KiyosakiModal';
 import ToolHelpModal from '../../components/ToolHelpModal';
 import CookieConsent from '../../components/legal/CookieConsent';
@@ -19,7 +19,7 @@ export default function ActivationScreen({ onLoginSuccess }) {
 
   const handleActivation = async (e) => {
     e.preventDefault();
-    if (!licenseInput.trim()) return; // Prevents empty submissions
+    if (!licenseInput.trim()) return;
 
     setLoading(true);
     setErrorMessage('');

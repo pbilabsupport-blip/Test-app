@@ -1,24 +1,24 @@
-import fpPromise from '@fingerprintjs/fingerprintjs';
+import FingerprintJS from '@fingerprintjs/fingerprintjs';
 
-/**
- * Generates an ironclad Device ID using FingerprintJS (Free Tier).
- * P.B.I. Labs Protocol: Includes an Auto-Heal Fallback for Ad-Blockers.
- */
-export const generateDeviceId = async () => {
+let fpPromise = null;
+
+export const getFingerprint = async () => {
   try {
-    // Attempt to load the free tier fingerprinting agent
-    const fp = await fpPromise.load();
+    if (!fpPromise) {
+      fpPromise = FingerprintJS.load();
+    }
+    const fp = await fpPromise;
     const result = await fp.get();
     return result.visitorId;
   } catch (error) {
-    console.warn('P.B.I. Labs Alert: Ad-blocker detected. Deploying Auto-Heal Fallback ID.');
-    
-    // Auto-Heal Fix: If blocked, create a local backup ID so the app boots safely
-    let backupId = localStorage.getItem('pbi_backup_device_id');
-    if (!backupId) {
-      backupId = 'fallback-' + Math.random().toString(36).substring(2, 15);
-      localStorage.setItem('pbi_backup_device_id', backupId);
+    console.error('Fingerprint generation failed, falling back to local ID:', error);
+    let fallbackId = localStorage.getItem('pbi_fallback_device_id');
+    if (!fallbackId) {
+      fallbackId = 'dev_' + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('pbi_fallback_device_id', fallbackId);
     }
-    return backupId;
+    return fallbackId;
   }
 };
+
+export default getFingerprint;

@@ -1,7 +1,21 @@
 import React from 'react';
 import { useAppContext } from '../../../../context/AppContext';
+import { recordPayment, recordYield } from '../ledger';
+import ReminderSettings from '../../../../components/reminders/ReminderSettings';
 
-export const ActionCenter = ({ assets, setAssets, liabilities, setLiabilities, expenses, setExpenses, showToast }) => {
+export const ActionCenter = ({
+  assets,
+  setAssets,
+  liabilities,
+  setLiabilities,
+  expenses,
+  setExpenses,
+  incomes,
+  setIncomes,
+  showToast,
+  reminderPrefs,
+  setReminderPrefs
+}) => {
   const { language } = useAppContext();
   const isEs = language === 'es';
 
@@ -19,19 +33,24 @@ export const ActionCenter = ({ assets, setAssets, liabilities, setLiabilities, e
     if (type === 'liability') {
       const target = liabilities.find(l => l.id === id);
       if (!target) return;
-      const newAmount = target.amount - target.paymentAmount;
+      const payment = Number(target.paymentAmount) || 0;
+      const newAmount = Number(target.amount) - payment;
 
       if (newAmount <= 0) {
         setLiabilities(liabilities.filter(l => l.id !== id));
         setExpenses(expenses.filter(e => e.linkedLiabilityId !== id));
-        showToast(isEs ? `¡Felicidades! ${target.name} ha sido pagado por completo.` : `Congratulations! ${target.name} has been fully paid off.`);
+        showToast(isEs ? `¡Felicidades! ${target.name} ha sido pagado por completo y salió del estado.` : `Congratulations! ${target.name} is paid off and removed from the statement.`);
       } else {
         setLiabilities(liabilities.map(l => l.id === id ? { ...l, amount: newAmount, nextDate: advanceDate(l.nextDate, l.frequency) } : l));
-        showToast(isEs ? `Pago procesado. Saldo restante: $${newAmount.toFixed(2)}` : `Payment processed. Remaining balance: $${newAmount.toFixed(2)}`);
+        setExpenses(recordPayment(expenses, target, payment));
+        showToast(isEs ? `Pago de $${payment.toFixed(2)} registrado. Saldo: $${newAmount.toFixed(2)}` : `Payment of $${payment.toFixed(2)} posted to the statement. Balance: $${newAmount.toFixed(2)}`);
       }
     } else if (type === 'asset') {
+      const target = assets.find(a => a.id === id);
+      if (!target) return;
       setAssets(assets.map(a => a.id === id ? { ...a, nextDate: advanceDate(a.nextDate, a.frequency) } : a));
-      showToast(isEs ? '¡Ingreso Pasivo recibido!' : 'Passive Income received!');
+      setIncomes(recordYield(incomes, target));
+      showToast(isEs ? 'Ingreso pasivo registrado en el estado financiero.' : 'Passive income was posted to the statement.');
     }
   };
 
@@ -43,6 +62,8 @@ export const ActionCenter = ({ assets, setAssets, liabilities, setLiabilities, e
       <h2 style={{ color: 'var(--text-color)', marginBottom: '20px', borderBottom: '2px solid var(--primary-color)', paddingBottom: '10px' }}>
         {isEs ? 'Centro de Acción (Pagos)' : 'Action Center (Payments)'}
       </h2>
+
+      <ReminderSettings prefs={reminderPrefs} onChange={setReminderPrefs} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
         

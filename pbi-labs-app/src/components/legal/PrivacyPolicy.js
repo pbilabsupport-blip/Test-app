@@ -11,9 +11,19 @@ export default function PrivacyPolicy() {
         {isEs ? 'Política de Privacidad' : 'Privacy Policy'}
       </h2>
       <p style={{ lineHeight: '1.6', color: 'var(--text-color)', marginBottom: '15px' }}>
-        {isEs 
-          ? 'Sus datos financieros se almacenan de forma segura y privada en Supabase mediante nombres de espacio cifrados y huellas digitales de dispositivos, garantizando que ninguna información sea compartida o cruzada con otros usuarios.'
-          : 'Your financial data is securely and privately stored in Supabase using encrypted namespaces and device digital fingerprints, ensuring zero information cross-contamination between users.'}
+        {isEs
+          ? 'Su estado financiero (ingresos, gastos, activos y pasivos) se guarda en este navegador. No se vende y no se mezcla con la cuenta de otra persona.'
+          : 'Your financial statement (income, expenses, assets, and liabilities) stays in this browser. It is not sold, and it is not mixed with another person\'s account.'}
+      </p>
+      <p style={{ lineHeight: '1.6', color: 'var(--text-color)', marginBottom: '15px' }}>
+        {isEs
+          ? 'Si activa una licencia Pro, guardamos su correo, la clave de licencia y un identificador de dispositivo en Supabase para aplicar el límite de 2 dispositivos. Si enciende recordatorios, también guardamos el nombre, monto y fecha del pago, más la suscripción push de este dispositivo, únicamente para enviarle ese aviso.'
+          : 'If you activate a Pro license, we store your email, license key, and a device id in Supabase so we can enforce the 2-device limit. If you turn on reminders, we also store the payment name, amount, and date, plus this device\'s push subscription, only so we can send that reminder.'}
+      </p>
+      <p style={{ lineHeight: '1.6', color: 'var(--text-color)' }}>
+        {isEs
+          ? 'La cuenta Gratis puede mostrar anuncios de Google AdSense. La cuenta Pro no muestra anuncios dentro de la bóveda. AdSense usa sus propias cookies; puede rechazarlas en el aviso de cookies del navegador.'
+          : 'The Free account may show Google AdSense ads. Pro does not show ads inside the vault. AdSense uses its own cookies; you can reject non-essential cookies in your browser.'}
       </p>
     </div>
   );

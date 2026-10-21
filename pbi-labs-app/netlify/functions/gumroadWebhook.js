@@ -1,89 +1,56 @@
-const { createClient } = require('@supabase/supabase-js');
+const {
+  json,
+  readBody,
+  getSupabaseAdmin,
+  normalizeEmail,
+  webhookAuthorized,
+  verifyWithGumroad,
+  isLicenseDead,
+  saveLicense
+} = require('./_lib');
 
-exports.handler = async (event, context) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async function handler(event) {
+  if (event.httpMethod && event.httpMethod !== 'POST') {
+    return json(405, { error: 'Method Not Allowed' });
+  }
+
+  if (!webhookAuthorized(event)) {
+    return json(401, { error: 'Unauthorized webhook.' });
   }
 
   try {
-    // Initialize Supabase with Service Role Key to bypass RLS for server-side webhooks
-    const supabase = createClient(
-      process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL, 
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
-
-    // Handle base64 encoded payloads from Netlify hosting
-    const rawBody = event.isBase64Encoded 
-      ? Buffer.from(event.body, 'base64').toString('utf-8') 
-      : event.body;
-
-    let payload;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch (e) {
-      // Fallback parser for URL-encoded form data sent by Gumroad
-      const params = new URLSearchParams(rawBody);
-      payload = Object.fromEntries(params);
-    }
-
-    const email = payload.email;
-    const licenseKey = payload.license_key;
+    const payload = readBody(event) || {};
+    const licenseKey = String(payload.license_key || payload.licenseKey || '').trim();
+    const email = normalizeEmail(payload.email);
 
     if (!licenseKey) {
-      return { statusCode: 200, body: 'Ignored: No License Key in payload.' };
+      return json(200, { ok: true, ignored: true });
     }
 
-    // Check all possible Gumroad cancellation and refund flags
-    const isCancellation = 
-      payload.refunded === 'true' || 
-      payload.refunded === true || 
-      !!payload.subscription_ended_at || 
-      !!payload.subscription_cancelled_at || 
-      !!payload.subscription_failed_at;
-
-    if (isCancellation) {
-      // Deactivate license record and clear device slots
-      await supabase
-        .from('licenses')
-        .update({ is_active: false, device_1: null, device_2: null, seats_used: 0 })
-        .eq('license_key', licenseKey);
-        
-      // Purge active device seats
-      await supabase
-        .from('device_seats')
-        .delete()
-        .eq('license_key', licenseKey);
-
-      return { statusCode: 200, body: 'Subscription Terminated.' };
-    } else {
-      // SAFE UPSERT: Only initializes default state if the record is brand new. 
-      // This prevents monthly subscription renewals from wiping out existing user seats!
-      const { data: existingLicense } = await supabase
-        .from('licenses')
-        .select('*')
-        .eq('license_key', licenseKey)
-        .single();
-
-      if (!existingLicense) {
-        await supabase
-          .from('licenses')
-          .insert({ 
-            email: email, 
-            license_key: licenseKey, 
-            is_active: true,
-            status: 'active'
-          }); 
-      } else {
-        await supabase
-          .from('licenses')
-          .update({ is_active: true, status: 'active', email: email || existingLicense.email })
-          .eq('license_key', licenseKey);
-      }
-
-      return { statusCode: 200, body: 'License Injected Successfully.' };
+    const supabase = getSupabaseAdmin();
+    let dead = false;
+    try {
+      const gumroadData = await verifyWithGumroad(licenseKey);
+      dead = isLicenseDead(gumroadData);
+    } catch (error) {
+      if (error.code === 'MISSING_CONFIG') throw error;
+      const flagged = payload.refunded === 'true' || payload.refunded === true
+        || payload.chargebacked === 'true' || payload.chargebacked === true;
+      if (!flagged) throw error;
+      dead = true;
     }
+
+    if (dead) {
+      await saveLicense(supabase, { licenseKey, email, active: false });
+      await supabase.from('device_seats').delete().eq('license_key', licenseKey);
+      return json(200, { ok: true, status: 'inactive' });
+    }
+
+    await saveLicense(supabase, { licenseKey, email, active: true });
+    return json(200, { ok: true, status: 'active' });
   } catch (error) {
-    console.error('Webhook Failure:', error);
-    return { statusCode: 500, body: 'Internal Server Error' };
+    console.error('Gumroad webhook failed:', error.message);
+    const status = error.code === 'MISSING_CONFIG' ? 500 : 500;
+    return json(status, { error: 'Webhook failed.' });
   }
 };

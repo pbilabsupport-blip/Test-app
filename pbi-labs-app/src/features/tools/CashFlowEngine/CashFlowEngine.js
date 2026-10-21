@@ -4,13 +4,16 @@ import { Dashboard } from './components/Dashboard';
 import { Statement } from './components/Statement';
 import { ActionCenter } from './components/ActionCenter';
 import { CommandModal } from './components/CommandModal';
+import AdSlot from '../../../components/ads/AdSlot';
+import usePaymentReminders from '../../../hooks/usePaymentReminders';
+import { useReminderPrefsState } from '../../../components/reminders/ReminderSettings';
 
 export function CashFlowEngine() {
   const { authSession, language } = useAppContext();
   const isEs = language === 'es';
 
   // Create a unique storage namespace for this specific user/license key to prevent cross-contamination
-  const storageKey = `pbi_vault_data_${authSession?.key || authSession?.email || 'default'}`;
+  const storageKey = `pbi_vault_data_${authSession?.email || 'default'}`;
 
   // Navigation tabs: 'dashboard', 'statement', 'actions'
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -53,6 +56,8 @@ export function CashFlowEngine() {
       { id: 1, name: 'Car Loan / Préstamo de Auto', amount: 8000, requiresPayments: true, paymentAmount: 350, frequency: 'monthly', nextDate: '2026-08-15' }
     ];
   });
+  const [reminderPrefs, setReminderPrefs] = useReminderPrefsState();
+  usePaymentReminders(liabilities, reminderPrefs);
 
   // Synchronize states to user-namespaced storage on every update
   useEffect(() => {
@@ -77,8 +82,14 @@ export function CashFlowEngine() {
   const handleDelete = (type, id) => {
     if (type === 'income') setIncomes(incomes.filter(i => i.id !== id));
     if (type === 'expense') setExpenses(expenses.filter(e => e.id !== id));
-    if (type === 'asset') setAssets(assets.filter(a => a.id !== id));
-    if (type === 'liability') setLiabilities(liabilities.filter(l => l.id !== id));
+    if (type === 'asset') {
+      setAssets(assets.filter(a => a.id !== id));
+      setIncomes(incomes.filter(i => i.linkedAssetId !== id));
+    }
+    if (type === 'liability') {
+      setLiabilities(liabilities.filter(l => l.id !== id));
+      setExpenses(expenses.filter(e => e.linkedLiabilityId !== id));
+    }
     showToast(isEs ? 'Registro eliminado correctamente' : 'Record deleted successfully');
   };
 
@@ -91,7 +102,7 @@ export function CashFlowEngine() {
           {isEs ? '🛡️ Bóveda Financiera Segura' : '🛡️ Secure Financial Vault'}
         </span>
         <span style={{ color: 'var(--text-muted)' }}>
-          {isEs ? `Sesión: ${authSession?.email} | Licencia: ${authSession?.key}` : `Session: ${authSession?.email} | License: ${authSession?.key}`}
+          {isEs ? `Sesión: ${authSession?.email} · ${authSession?.tier === 'pro' ? 'Pro' : 'Gratis'}` : `Session: ${authSession?.email} · ${authSession?.tier === 'pro' ? 'Pro' : 'Free'}`}
         </span>
       </div>
 
@@ -101,6 +112,8 @@ export function CashFlowEngine() {
           {toastMessage}
         </div>
       )}
+
+      <AdSlot slot={process.env.REACT_APP_ADSENSE_SLOT_BANNER} />
 
       {/* Sub-Navigation Bar for Tools */}
       <div style={{ display: 'flex', gap: '10px', background: 'var(--card-bg)', padding: '10px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
@@ -154,7 +167,11 @@ export function CashFlowEngine() {
           setLiabilities={setLiabilities}
           expenses={expenses}
           setExpenses={setExpenses}
+          incomes={incomes}
+          setIncomes={setIncomes}
           showToast={showToast}
+          reminderPrefs={reminderPrefs}
+          setReminderPrefs={setReminderPrefs}
         />
       )}
 

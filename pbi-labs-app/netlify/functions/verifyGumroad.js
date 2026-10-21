@@ -1,80 +1,81 @@
-const fetch = require('node-fetch');
-const { createClient } = require('@supabase/supabase-js');
+const {
+  json,
+  readBody,
+  requirePost,
+  getSupabaseAdmin,
+  normalizeEmail,
+  verifyWithGumroad,
+  isLicenseDead,
+  saveLicense,
+  listSeats,
+  insertSeat,
+  touchSeat,
+  publicError
+} = require('./_lib');
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-exports.handler = async function(event, context) {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
-  }
+exports.handler = async function handler(event) {
+  const methodError = requirePost(event);
+  if (methodError) return methodError;
 
   try {
-    const { licenseKey, email, deviceId } = JSON.parse(event.body);
+    const body = readBody(event);
+    if (body === null) return json(400, { success: false, code: 'BAD_REQUEST', error: 'Invalid request.' });
+
+    const licenseKey = String(body.licenseKey || '').trim();
+    const email = normalizeEmail(body.email);
+    const deviceId = String(body.deviceId || '').trim();
+    const mode = body.mode || 'activate';
 
     if (!licenseKey || !email || !deviceId) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Missing required parameters.' }) };
+      return json(400, { success: false, code: 'BAD_REQUEST', error: 'Email, license key, and device are required.' });
     }
 
-    // 1. Verify license with Gumroad API
-    const gumroadResponse = await fetch('https://api.gumroad.com/v2/licenses/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        product_permalink: process.env.GUMROAD_PRODUCT_PERMALINK,
-        license_key: licenseKey
-      })
-    });
+    const supabase = getSupabaseAdmin();
 
-    const gumroadData = await gumroadResponse.json();
-
-    if (!gumroadData.success || gumroadData.purchase.cancelled || gumroadData.purchase.ended) {
-      return { statusCode: 401, body: JSON.stringify({ error: 'Invalid or terminated Gumroad license.' }) };
+    if (mode === 'release') {
+      await supabase.from('device_seats').delete().eq('license_key', licenseKey).eq('device_id', deviceId);
+      return json(200, { success: true });
     }
 
-    // 2. Check active device seats in Supabase
-    const { data: activeDevices, error: dbError } = await supabase
-      .from('device_seats')
-      .select('*')
-      .eq('license_key', licenseKey);
-
-    if (dbError) {
-      throw new Error(dbError.message);
+    const gumroadData = await verifyWithGumroad(licenseKey);
+    if (isLicenseDead(gumroadData)) {
+      await saveLicense(supabase, { licenseKey, email, active: false }).catch(() => {});
+      await supabase.from('device_seats').delete().eq('license_key', licenseKey);
+      return json(401, { success: false, code: 'INVALID_LICENSE', error: 'That license is invalid or no longer active.' });
     }
 
-    const isAlreadyRegistered = activeDevices.find(d => d.device_id === deviceId);
+    const purchaseEmail = normalizeEmail(gumroadData.purchase && gumroadData.purchase.email);
+    if (purchaseEmail && purchaseEmail !== email) {
+      return json(401, { success: false, code: 'EMAIL_MISMATCH', error: 'That license is registered to a different email.' });
+    }
 
-    if (!isAlreadyRegistered) {
-      if (activeDevices.length >= 2) {
-        return { 
-          statusCode: 403, 
-          body: JSON.stringify({ error: 'Device limit reached. Maximum 2 device seats allowed per license.' }) 
-        };
+    await saveLicense(supabase, { licenseKey, email: purchaseEmail || email, active: true });
+
+    const seats = await listSeats(supabase, licenseKey);
+    const existing = seats.find((seat) => seat.device_id === deviceId);
+
+    if (!existing) {
+      if (seats.length >= 2) {
+        return json(403, {
+          success: false,
+          code: 'SEAT_LIMIT',
+          error: 'This license already has 2 devices. Release one from Lost Device.'
+        });
       }
-
-      // Register new device seat
-      const { error: insertError } = await supabase
-        .from('device_seats')
-        .insert([{ license_key: licenseKey, email: email, device_id: deviceId, last_ping: new Date() }]);
-
-      if (insertError) throw new Error(insertError.message);
-    } else {
-      // Update heartbeat timestamp for existing device
-      await supabase
-        .from('device_seats')
-        .update({ last_ping: new Date() })
-        .eq('license_key', licenseKey)
-        .eq('device_id', deviceId);
+      const now = new Date().toISOString();
+      await insertSeat(supabase, {
+        license_key: licenseKey,
+        email: purchaseEmail || email,
+        device_id: deviceId,
+        last_ping: now,
+        last_seen: now
+      });
+    } else if (mode === 'heartbeat' || mode === 'activate') {
+      await touchSeat(supabase, licenseKey, deviceId);
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ success: true, message: 'License verified and device seat secured.' })
-    };
-
+    return json(200, { success: true, tier: 'pro', email: purchaseEmail || email });
   } catch (error) {
-    console.error('Gumroad Verification Error:', error);
-    return { statusCode: 500, body: JSON.stringify({ error: 'Internal server error during verification.' }) };
+    return publicError(error);
   }
 };

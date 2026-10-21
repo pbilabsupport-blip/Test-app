@@ -75,7 +75,7 @@ export function Statement({ incomes, expenses, assets, liabilities, handleDelete
                 <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                   <div>
                     <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{item.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{isEs ? `Rendimiento: $${item.yieldAmount}/mes` : `Yield: $${item.yieldAmount}/mo`}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.yieldAmount ? (isEs ? `Rendimiento: $${item.yieldAmount}/mes` : `Yield: $${item.yieldAmount}/mo`) : (isEs ? 'Sin rendimiento' : 'No yield')}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                     <span style={{ fontWeight: 'bold', color: 'var(--primary-color)' }}>${item.amount}</span>
@@ -96,7 +96,7 @@ export function Statement({ incomes, expenses, assets, liabilities, handleDelete
                 <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', background: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                   <div>
                     <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{item.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{isEs ? `Pago: $${item.paymentAmount}/mes` : `Payment: $${item.paymentAmount}/mo`}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.paymentAmount ? (isEs ? `Pago: $${item.paymentAmount}/mes` : `Payment: $${item.paymentAmount}/mo`) : (isEs ? 'Sin pago recurrente' : 'No recurring payment')}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                     <span style={{ fontWeight: 'bold', color: '#f59e0b' }}>${item.amount}</span>

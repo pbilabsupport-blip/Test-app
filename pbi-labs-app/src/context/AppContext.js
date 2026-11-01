@@ -66,6 +66,7 @@ export const AppProvider = ({ children }) => {
     return data.session?.access_token || null;
   }, []);
 
+  // Heartbeat check for active Pro sessions
   useEffect(() => {
     if (authSession?.tier !== 'pro') {
       setLoading(false);
@@ -110,54 +111,42 @@ export const AppProvider = ({ children }) => {
     };
   }, [authSession?.tier, authSession?.email, clearLocalSession]);
 
+  // FREE SIGN UP: Does not trigger full-screen unmount
   const handleFreeSignUp = async (email, password) => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
-      const session = { success: true, tier: 'free', email };
-      setAuthSession(session);
-      persistSession(session);
-      localStorage.removeItem(LICENSE_STORAGE_KEY);
-      return { success: true, data };
-    } finally {
-      setLoading(false);
-    }
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) throw error;
+    const session = { success: true, tier: 'free', email };
+    setAuthSession(session);
+    persistSession(session);
+    localStorage.removeItem(LICENSE_STORAGE_KEY);
+    return { success: true, data };
   };
 
+  // FREE LOGIN: Does not trigger full-screen unmount
   const handleFreeLogin = async (email, password) => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      const session = { success: true, tier: 'free', email: data.user?.email || email };
-      setAuthSession(session);
-      persistSession(session);
-      localStorage.removeItem(LICENSE_STORAGE_KEY);
-      return { success: true, data };
-    } finally {
-      setLoading(false);
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    const session = { success: true, tier: 'free', email: data.user?.email || email };
+    setAuthSession(session);
+    persistSession(session);
+    localStorage.removeItem(LICENSE_STORAGE_KEY);
+    return { success: true, data };
   };
 
+  // PRO ACTIVATION: Does not trigger full-screen unmount so errors display cleanly
   const handleActivate = async (key, email) => {
-    setLoading(true);
     setAuthNotice(null);
-    try {
-      const deviceId = await getFingerprint();
-      const result = await verifyLicense({
-        licenseKey: key.trim(),
-        email: email.trim(),
-        deviceId,
-        mode: 'activate'
-      });
-      const session = { success: true, tier: 'pro', email: result.email || email.trim() };
-      localStorage.setItem(LICENSE_STORAGE_KEY, key.trim());
-      setAuthSession(session);
-      persistSession(session);
-    } finally {
-      setLoading(false);
-    }
+    const deviceId = await getFingerprint();
+    const result = await verifyLicense({
+      licenseKey: key.trim(),
+      email: email.trim(),
+      deviceId,
+      mode: 'activate'
+    });
+    const session = { success: true, tier: 'pro', email: result.email || email.trim() };
+    localStorage.setItem(LICENSE_STORAGE_KEY, key.trim());
+    setAuthSession(session);
+    persistSession(session);
   };
 
   const handleLogout = async () => {
@@ -168,14 +157,14 @@ export const AppProvider = ({ children }) => {
     try {
       await supabase.auth.signOut();
     } catch (err) {
-      // Local sign-out still stands if Supabase is unreachable.
+      // Local sign-out still stands
     }
     if (tier === 'pro' && licenseKey && email) {
       try {
         const deviceId = await getFingerprint();
         await verifyLicense({ licenseKey, email, deviceId, mode: 'release' });
       } catch (err) {
-        // The seat is released the next time this device tries to sign in.
+        // Seat freed on next heartbeat
       }
     }
   };

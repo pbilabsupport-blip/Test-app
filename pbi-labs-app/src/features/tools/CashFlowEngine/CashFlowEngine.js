@@ -4,6 +4,8 @@ import { supabase } from '../../../services/supabase';
 import { Dashboard } from './components/Dashboard';
 import { Statement } from './components/Statement';
 import { ActionCenter } from './components/ActionCenter';
+import { VisionBoard } from './components/VisionBoard';
+import { LifeList } from './components/LifeList';
 import { CommandModal } from './components/CommandModal';
 import AdSlot from '../../../components/ads/AdSlot';
 import usePaymentReminders from '../../../hooks/usePaymentReminders';
@@ -17,7 +19,7 @@ export function CashFlowEngine() {
   // Local storage namespace fallback
   const storageKey = `pbi_vault_data_${authSession?.email || 'default'}`;
 
-  // Navigation tabs: 'dashboard', 'statement', 'actions'
+  // Navigation tabs: 'dashboard' | 'statement' | 'actions' | 'vision' | 'lifelist'
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
@@ -60,6 +62,38 @@ export function CashFlowEngine() {
     ];
   });
 
+  // Phase 2: Vision Board & 100-Item Life List States
+  const [visionCards, setVisionCards] = useState(() => {
+    const saved = localStorage.getItem(`${storageKey}_vision_cards`);
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 1,
+        title: 'First Rental Property / Primera Propiedad',
+        targetAmount: 25000,
+        currentAmount: 4500,
+        targetDate: '12-31-2027',
+        imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80',
+        createdAt: new Date().toISOString()
+      }
+    ];
+  });
+
+  const [lifeList, setLifeList] = useState(() => {
+    const saved = localStorage.getItem(`${storageKey}_life_list`);
+    const currentYear = new Date().getFullYear();
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 1,
+        text: 'Achieve 100% Financial Freedom / Libertad Financiera',
+        category: 'Financial',
+        year: currentYear,
+        isCompleted: false,
+        completedDate: '',
+        createdAt: new Date().toISOString()
+      }
+    ];
+  });
+
   const [reminderPrefs, setReminderPrefs] = useReminderPrefsState();
   usePaymentReminders(liabilities, reminderPrefs);
 
@@ -73,7 +107,7 @@ export function CashFlowEngine() {
 
         const { data, error } = await supabase
           .from('user_vault')
-          .select('incomes, expenses, assets, liabilities')
+          .select('incomes, expenses, assets, liabilities, vision_board, life_list')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -87,6 +121,8 @@ export function CashFlowEngine() {
           if (Array.isArray(data.expenses)) setExpenses(data.expenses);
           if (Array.isArray(data.assets)) setAssets(data.assets);
           if (Array.isArray(data.liabilities)) setLiabilities(data.liabilities);
+          if (Array.isArray(data.vision_board)) setVisionCards(data.vision_board);
+          if (Array.isArray(data.life_list)) setLifeList(data.life_list);
           setIsCloudSynced(true);
         } else if (!data && user) {
           // Initialize first-time row in Supabase
@@ -96,6 +132,8 @@ export function CashFlowEngine() {
             expenses,
             assets,
             liabilities,
+            vision_board: visionCards,
+            life_list: lifeList,
             updated_at: new Date().toISOString()
           }]);
           if (isMounted) setIsCloudSynced(true);
@@ -117,6 +155,8 @@ export function CashFlowEngine() {
     localStorage.setItem(`${storageKey}_expenses`, JSON.stringify(expenses));
     localStorage.setItem(`${storageKey}_assets`, JSON.stringify(assets));
     localStorage.setItem(`${storageKey}_liabilities`, JSON.stringify(liabilities));
+    localStorage.setItem(`${storageKey}_vision_cards`, JSON.stringify(visionCards));
+    localStorage.setItem(`${storageKey}_life_list`, JSON.stringify(lifeList));
 
     // Skip cloud save on initial mount to avoid overwrite before hydration
     if (isFirstRender.current) {
@@ -135,6 +175,8 @@ export function CashFlowEngine() {
           expenses,
           assets,
           liabilities,
+          vision_board: visionCards,
+          life_list: lifeList,
           updated_at: new Date().toISOString()
         });
         setIsCloudSynced(true);
@@ -144,7 +186,7 @@ export function CashFlowEngine() {
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [incomes, expenses, assets, liabilities, storageKey]);
+  }, [incomes, expenses, assets, liabilities, visionCards, lifeList, storageKey]);
 
   // Calculations
   const totalIncome = incomes.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
@@ -176,6 +218,19 @@ export function CashFlowEngine() {
     }
     showToast(isEs ? 'Registro eliminado correctamente' : 'Record deleted successfully');
   };
+
+  const navButtonStyle = (tabName) => ({
+    padding: '10px 16px',
+    borderRadius: '8px',
+    border: 'none',
+    background: activeTab === tabName ? 'var(--primary-color)' : 'transparent',
+    color: activeTab === tabName ? '#000' : 'var(--text-color)',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    fontSize: '0.9rem',
+    transition: 'all 0.2s ease'
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1200px', margin: '0 auto', position: 'relative', padding: '20px' }}>
@@ -209,22 +264,22 @@ export function CashFlowEngine() {
         <AdSlot slot={process.env.REACT_APP_ADSENSE_SLOT_BANNER} />
       )}
 
-      {/* Sub-Navigation Bar for Tools */}
-      <div style={{ display: 'flex', gap: '10px', background: 'var(--card-bg)', padding: '10px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-        <button 
-          onClick={() => setActiveTab('dashboard')} 
-          style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: activeTab === 'dashboard' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'dashboard' ? '#000' : 'var(--text-color)', fontWeight: 'bold', cursor: 'pointer' }}>
-          {isEs ? 'Panel Principal' : 'Dashboard'}
+      {/* Sub-Navigation Bar for Tools (Scrollable on mobile) */}
+      <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '8px', borderRadius: '12px', border: '1px solid var(--border-color)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <button onClick={() => setActiveTab('dashboard')} style={navButtonStyle('dashboard')}>
+          {isEs ? '📊 Panel' : '📊 Dashboard'}
         </button>
-        <button 
-          onClick={() => setActiveTab('statement')} 
-          style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: activeTab === 'statement' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'statement' ? '#000' : 'var(--text-color)', fontWeight: 'bold', cursor: 'pointer' }}>
-          {isEs ? 'Estado Financiero' : 'Statement'}
+        <button onClick={() => setActiveTab('statement')} style={navButtonStyle('statement')}>
+          {isEs ? '📑 Estado' : '📑 Statement'}
         </button>
-        <button 
-          onClick={() => setActiveTab('actions')} 
-          style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: activeTab === 'actions' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'actions' ? '#000' : 'var(--text-color)', fontWeight: 'bold', cursor: 'pointer' }}>
-          {isEs ? 'Centro de Acción' : 'Action Center'}
+        <button onClick={() => setActiveTab('actions')} style={navButtonStyle('actions')}>
+          {isEs ? '⚡ Acción' : '⚡ Action Center'}
+        </button>
+        <button onClick={() => setActiveTab('vision')} style={navButtonStyle('vision')}>
+          {isEs ? '🌟 Visión SMART' : '🌟 Vision Board'}
+        </button>
+        <button onClick={() => setActiveTab('lifelist')} style={navButtonStyle('lifelist')}>
+          {isEs ? '📜 100 Sueños' : '📜 100 Life List'}
         </button>
       </div>
 
@@ -266,6 +321,23 @@ export function CashFlowEngine() {
           showToast={showToast}
           reminderPrefs={reminderPrefs}
           setReminderPrefs={setReminderPrefs}
+        />
+      )}
+
+      {activeTab === 'vision' && (
+        <VisionBoard 
+          visionCards={visionCards}
+          setVisionCards={setVisionCards}
+          cashFlow={cashFlow}
+          showToast={showToast}
+        />
+      )}
+
+      {activeTab === 'lifelist' && (
+        <LifeList 
+          lifeList={lifeList}
+          setLifeList={setLifeList}
+          showToast={showToast}
         />
       )}
 

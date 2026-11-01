@@ -58,7 +58,7 @@ export default function ActivationScreen() {
   const [otpMessage, setOtpMessage] = useState('');
 
   const isEs = language === 'es';
-  const buyUrl = process.env.REACT_APP_GUMROAD_URL || 'https://gumroad.com';
+  const buyUrl = process.env.REACT_APP_GUMROAD_URL || 'https://pbilabs.gumroad.com/l/uuffyy?_gl=1*2zb83z*_ga*MTA3NDQwNTY5LjE3OTM1NzU0ODY.*_ga_6LJN6D94N6*czE3OTM1NzU0ODUkbzEkZzEkdDE3OTM1NzU0OTAkajU1JGwwJGgw';
 
   useEffect(() => {
     if (!authNotice) return;

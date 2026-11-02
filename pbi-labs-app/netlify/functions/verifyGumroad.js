@@ -32,25 +32,48 @@ exports.handler = async function handler(event) {
 
     const supabase = getSupabaseAdmin();
 
+    // 1. Release Mode (Logout)
     if (mode === 'release') {
       await supabase.from('device_seats').delete().eq('license_key', licenseKey).eq('device_id', deviceId);
       return json(200, { success: true });
     }
 
-    const gumroadData = await verifyWithGumroad(licenseKey);
-    if (isLicenseDead(gumroadData)) {
-      await saveLicense(supabase, { licenseKey, email, active: false }).catch(() => {});
-      await supabase.from('device_seats').delete().eq('license_key', licenseKey);
+    // 2. CHECK SUPABASE FIRST (Trust verified sales on record)
+    const { data: existingRows } = await supabase
+      .from('licenses')
+      .select('*')
+      .eq('license_key', licenseKey)
+      .limit(1);
+
+    const dbLicense = existingRows && existingRows[0];
+
+    // If the license exists in Supabase and is active, approve it directly!
+    let isApproved = dbLicense && (dbLicense.is_active === true || dbLicense.status === 'active');
+    let purchaseEmail = normalizeEmail(dbLicense && dbLicense.email);
+
+    // 3. Fallback to Gumroad verification only if not yet in database
+    if (!isApproved) {
+      const gumroadData = await verifyWithGumroad(licenseKey);
+      if (!isLicenseDead(gumroadData)) {
+        purchaseEmail = normalizeEmail(gumroadData.purchase && gumroadData.purchase.email);
+        if (!purchaseEmail || purchaseEmail === email) {
+          isApproved = true;
+          await saveLicense(supabase, { licenseKey, email: purchaseEmail || email, active: true });
+        }
+      }
+    }
+
+    // If neither Supabase nor Gumroad approves it, reject
+    if (!isApproved) {
       return json(401, { success: false, code: 'INVALID_LICENSE', error: 'That license is invalid or no longer active.' });
     }
 
-    const purchaseEmail = normalizeEmail(gumroadData.purchase && gumroadData.purchase.email);
+    // 4. Verify Email Match
     if (purchaseEmail && purchaseEmail !== email) {
       return json(401, { success: false, code: 'EMAIL_MISMATCH', error: 'That license is registered to a different email.' });
     }
 
-    await saveLicense(supabase, { licenseKey, email: purchaseEmail || email, active: true });
-
+    // 5. Seat Management (Enforce 2-device cap)
     const seats = await listSeats(supabase, licenseKey);
     const existing = seats.find((seat) => seat.device_id === deviceId);
 

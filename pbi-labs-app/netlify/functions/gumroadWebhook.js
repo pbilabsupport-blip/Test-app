@@ -3,10 +3,12 @@ const {
   readBody,
   getSupabaseAdmin,
   normalizeEmail,
-  verifyWithGumroad,
-  isLicenseDead,
   saveLicense
 } = require('./_lib');
+
+function isTruthy(value) {
+  return value === true || value === 'true' || value === 1 || value === '1';
+}
 
 exports.handler = async function handler(event) {
   if (event.httpMethod && event.httpMethod !== 'POST') {
@@ -18,30 +20,36 @@ exports.handler = async function handler(event) {
     const licenseKey = String(payload.license_key || payload.licenseKey || '').trim();
     const email = normalizeEmail(payload.email);
 
-    // If it's just a test ping with no key, return 200 OK so Gumroad turns green
+    // If it's a test ping with no key, return 200 OK
     if (!licenseKey) {
-      console.log('Gumroad test ping received successfully.');
-      return json(200, { ok: true, message: 'Test ping received.' });
+      return json(200, { ok: true, message: 'Test ping acknowledged.' });
     }
 
     const supabase = getSupabaseAdmin();
-    let dead = false;
 
-    try {
-      const gumroadData = await verifyWithGumroad(licenseKey);
-      dead = isLicenseDead(gumroadData);
-    } catch (error) {
-      const flagged = payload.refunded === 'true' || payload.refunded === true
-        || payload.chargebacked === 'true' || payload.chargebacked === true;
-      if (flagged) dead = true;
+    // LOGICAL CHECK: Inspect the actual sale status from Gumroad
+    const isRefunded = isTruthy(payload.refunded);
+    const isChargebacked = isTruthy(payload.chargebacked);
+    const isEnded = isTruthy(payload.ended);
+    
+    let isExpired = false;
+    if (payload.subscription_ended_at) {
+      const endedTime = new Date(payload.subscription_ended_at).getTime();
+      if (!Number.isNaN(endedTime) && endedTime <= Date.now()) {
+        isExpired = true;
+      }
     }
 
-    if (dead) {
+    // A sale is active if it has not been refunded, chargebacked, or expired
+    const isActive = !isRefunded && !isChargebacked && !isEnded && !isExpired;
+
+    if (!isActive) {
       await saveLicense(supabase, { licenseKey, email, active: false });
       await supabase.from('device_seats').delete().eq('license_key', licenseKey);
       return json(200, { ok: true, status: 'inactive' });
     }
 
+    // AUTOMATIC IMPORT: Mark active in Supabase
     await saveLicense(supabase, { licenseKey, email, active: true });
     return json(200, { ok: true, status: 'active' });
   } catch (error) {

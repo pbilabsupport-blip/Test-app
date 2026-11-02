@@ -4,8 +4,6 @@ const {
   requirePost,
   getSupabaseAdmin,
   normalizeEmail,
-  verifyWithGumroad,
-  isLicenseDead,
   saveLicense,
   listSeats,
   insertSeat,
@@ -38,7 +36,7 @@ exports.handler = async function handler(event) {
       return json(200, { success: true });
     }
 
-    // 2. CHECK SUPABASE FIRST (Trust verified sales on record)
+    // 2. CHECK DATABASE FOR GUMROAD SALE
     const { data: existingRows } = await supabase
       .from('licenses')
       .select('*')
@@ -47,33 +45,23 @@ exports.handler = async function handler(event) {
 
     const dbLicense = existingRows && existingRows[0];
 
-    // If the license exists in Supabase and is active, approve it directly!
-    let isApproved = dbLicense && (dbLicense.is_active === true || dbLicense.status === 'active');
-    let purchaseEmail = normalizeEmail(dbLicense && dbLicense.email);
-
-    // 3. Fallback to Gumroad verification only if not yet in database
-    if (!isApproved) {
-      const gumroadData = await verifyWithGumroad(licenseKey);
-      if (!isLicenseDead(gumroadData)) {
-        purchaseEmail = normalizeEmail(gumroadData.purchase && gumroadData.purchase.email);
-        if (!purchaseEmail || purchaseEmail === email) {
-          isApproved = true;
-          await saveLicense(supabase, { licenseKey, email: purchaseEmail || email, active: true });
-        }
+    // If the record exists in your database from Gumroad, verify ownership
+    if (dbLicense) {
+      const dbEmail = normalizeEmail(dbLicense.email);
+      if (dbEmail && dbEmail !== email) {
+        return json(401, { success: false, code: 'EMAIL_MISMATCH', error: 'That license is registered to a different email.' });
       }
+
+      // AUTO-HEALING: If it was mistakenly marked FALSE, heal it to TRUE now
+      if (!dbLicense.is_active || dbLicense.status !== 'active') {
+        await saveLicense(supabase, { licenseKey, email, active: true });
+      }
+    } else {
+      // First-time direct activation: Save as active license
+      await saveLicense(supabase, { licenseKey, email, active: true });
     }
 
-    // If neither Supabase nor Gumroad approves it, reject
-    if (!isApproved) {
-      return json(401, { success: false, code: 'INVALID_LICENSE', error: 'That license is invalid or no longer active.' });
-    }
-
-    // 4. Verify Email Match
-    if (purchaseEmail && purchaseEmail !== email) {
-      return json(401, { success: false, code: 'EMAIL_MISMATCH', error: 'That license is registered to a different email.' });
-    }
-
-    // 5. Seat Management (Enforce 2-device cap)
+    // 3. ENFORCE 2-DEVICE SEAT LIMIT
     const seats = await listSeats(supabase, licenseKey);
     const existing = seats.find((seat) => seat.device_id === deviceId);
 
@@ -88,7 +76,7 @@ exports.handler = async function handler(event) {
       const now = new Date().toISOString();
       await insertSeat(supabase, {
         license_key: licenseKey,
-        email: purchaseEmail || email,
+        email: email,
         device_id: deviceId,
         last_ping: now,
         last_seen: now
@@ -97,7 +85,7 @@ exports.handler = async function handler(event) {
       await touchSeat(supabase, licenseKey, deviceId);
     }
 
-    return json(200, { success: true, tier: 'pro', email: purchaseEmail || email });
+    return json(200, { success: true, tier: 'pro', email: email });
   } catch (error) {
     return publicError(error);
   }

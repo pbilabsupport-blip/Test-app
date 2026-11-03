@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppContext } from '../../../../context/AppContext';
-import { FiPlus, FiCheckCircle, FiAward, FiCalendar, FiTrash2, FiLock, FiRotateCw } from 'react-icons/fi';
+import { FiPlus, FiCheckCircle, FiAward, FiCalendar, FiTrash2, FiLock, FiRotateCw, FiCornerDownLeft } from 'react-icons/fi';
 
 // Audio Chime for Manifested Dreams
 function playVictoryChime() {
@@ -12,7 +12,6 @@ function playVictoryChime() {
     const gain = ctx.createGain();
 
     osc.type = 'triangle';
-    // Steve Harvey Victory Fanfare chord
     osc.frequency.setValueAtTime(440, ctx.currentTime); // A4
     osc.frequency.exponentialRampToValueAtTime(554.37, ctx.currentTime + 0.12); // C#5
     osc.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.24); // E5
@@ -51,13 +50,15 @@ export function LifeList({
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [activeTab, setActiveTab] = useState('list'); // 'list' | 'victory_wall'
 
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Rapid-Fire Inline State
+  const [rapidText, setRapidText] = useState('');
+  const [rapidCategory, setRapidCategory] = useState('Personal');
+  const rapidInputRef = useRef(null);
+
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const buyUrl = process.env.REACT_APP_GUMROAD_URL || 'https://gumroad.com';
 
-  const [newItemText, setNewItemText] = useState('');
-  const [newItemCategory, setNewItemCategory] = useState('Personal');
   const [claimingItem, setClaimingItem] = useState(null);
   const [claimDate, setClaimDate] = useState(getTodayMMDDYYYY());
 
@@ -69,22 +70,20 @@ export function LifeList({
   // Free Tier Limit: Max 10 items per year on Free
   const freeLimitReached = !isPro && yearItems.length >= 10;
 
-  const handleOpenAdd = () => {
+  // RAPID-FIRE INLINE ENTRY: Type dream and press Enter
+  const handleRapidAdd = (e) => {
+    if (e) e.preventDefault();
+    if (!rapidText.trim()) return;
+
     if (freeLimitReached) {
       setShowUpgradeModal(true);
-    } else {
-      setIsAddModalOpen(true);
+      return;
     }
-  };
-
-  const handleSaveItem = (e) => {
-    e.preventDefault();
-    if (!newItemText.trim()) return;
 
     const newItem = {
       id: Date.now(),
-      text: newItemText.trim(),
-      category: newItemCategory,
+      text: rapidText.trim(),
+      category: rapidCategory,
       year: selectedYear,
       isCompleted: false,
       completedDate: '',
@@ -92,10 +91,11 @@ export function LifeList({
     };
 
     setLifeList([...lifeList, newItem]);
-    setIsAddModalOpen(false);
-    setNewItemText('');
+    setRapidText('');
+    if (rapidInputRef.current) rapidInputRef.current.focus();
+
     if (showToast) {
-      showToast(isEs ? '✍️ Sueño agregado a su lista anual.' : '✍️ Dream added to your annual list.');
+      showToast(isEs ? '✍️ Sueño agregado a la lista.' : '✍️ Dream added to your list.');
     }
   };
 
@@ -127,7 +127,7 @@ export function LifeList({
     }
   };
 
-  // New Year Rollover: Copy pending items from selectedYear into next year
+  // New Year Rollover
   const handleRollover = () => {
     if (!isPro) {
       setShowUpgradeModal(true);
@@ -147,7 +147,7 @@ export function LifeList({
     setSelectedYear(nextYear);
     if (showToast) {
       showToast(isEs 
-        ? `🔄 ${itemsToRollover.length} sueños no completados transferidos a su lista de ${nextYear}.` 
+        ? `🔄 ${itemsToRollover.length} sueños pendientes transferidos a su lista de ${nextYear}.` 
         : `🔄 ${itemsToRollover.length} uncompleted dreams rolled over to your ${nextYear} list.`);
     }
   };
@@ -155,7 +155,7 @@ export function LifeList({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeIn 0.3s ease' }}>
       
-      {/* Header and Steve Harvey Quote Banner */}
+      {/* Header Banner */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
         <div>
           <h2 style={{ margin: 0, color: 'var(--text-color)', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -168,19 +168,11 @@ export function LifeList({
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button 
-            onClick={() => setIsReviewOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', background: 'var(--card-bg)', color: 'var(--primary-color)', border: '1px solid var(--primary-color)', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
-            <FiAward /> {isEs ? 'Revisión del Año' : 'Annual Review'}
-          </button>
-
-          <button 
-            onClick={handleOpenAdd}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}>
-            {freeLimitReached ? <FiLock /> : <FiPlus />} {isEs ? 'Agregar Sueño' : 'Add Dream'}
-          </button>
-        </div>
+        <button 
+          onClick={() => setIsReviewOpen(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', background: 'var(--card-bg)', color: 'var(--primary-color)', border: '1px solid var(--primary-color)', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+          <FiAward /> {isEs ? 'Revisión Anual' : 'Annual Review'}
+        </button>
       </div>
 
       {/* Annual Progress Meter */}
@@ -198,7 +190,7 @@ export function LifeList({
             <select 
               value={selectedYear} 
               onChange={e => setSelectedYear(Number(e.target.value))}
-              style={{ padding: '6px 12px', background: 'var(--bg-color)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+              style={{ padding: '6px 12px', background: 'var(--input-bg)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
               <option value={currentYear - 1}>{currentYear - 1}</option>
               <option value={currentYear}>{currentYear}</option>
               <option value={currentYear + 1}>{currentYear + 1}</option>
@@ -210,6 +202,36 @@ export function LifeList({
           <div style={{ width: `${Math.min(Math.round((completedItems.length / (isPro ? 100 : 10)) * 100), 100)}%`, height: '100%', background: 'linear-gradient(90deg, #f59e0b 0%, #10b981 100%)', transition: 'width 0.6s ease' }} />
         </div>
       </div>
+
+      {/* RAPID-FIRE INLINE ENTRY BAR: Fast, no-popup notepad entry */}
+      <form onSubmit={handleRapidAdd} style={{ background: 'var(--card-bg)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontWeight: 'bold', color: 'var(--primary-color)', fontSize: '0.9rem', paddingLeft: '6px' }}>
+          #{yearItems.length + 1}
+        </span>
+        <input 
+          ref={rapidInputRef}
+          type="text" 
+          value={rapidText}
+          onChange={e => setRapidText(e.target.value)}
+          placeholder={isEs ? 'Escriba un sueño y presione Enter (ej: Viajar a París, Comprar una casa)...' : 'Type a dream and press Enter (e.g., Trip to Paris, Buy a house)...'}
+          style={{ flex: 1, minWidth: '220px', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', fontSize: '0.95rem', outline: 'none' }}
+        />
+        <select 
+          value={rapidCategory} 
+          onChange={e => setRapidCategory(e.target.value)}
+          style={{ padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>
+          <option value="Personal">Personal / Lifestyle</option>
+          <option value="Financial">Financial / Money</option>
+          <option value="Family">Family / Relationships</option>
+          <option value="Career">Career / Business</option>
+          <option value="Spiritual">Health / Spiritual</option>
+        </select>
+        <button 
+          type="submit" 
+          style={{ padding: '12px 20px', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
+          <FiCornerDownLeft /> {isEs ? 'Agregar' : 'Add'}
+        </button>
+      </form>
 
       {/* Sub Navigation: The Active List vs. Victory Wall */}
       <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
@@ -231,12 +253,9 @@ export function LifeList({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {pendingItems.length === 0 ? (
             <div style={{ background: 'var(--card-bg)', padding: '40px 20px', borderRadius: '14px', border: '1px dashed var(--border-color)', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-muted)', margin: '0 0 15px 0' }}>
-                {isEs ? `Sin sueños pendientes en la lista de ${selectedYear}.` : `No pending dreams in your ${selectedYear} list.`}
+              <p style={{ color: 'var(--text-muted)', margin: 0 }}>
+                {isEs ? `Use la barra superior para escribir sus sueños para ${selectedYear}.` : `Use the bar above to write your dreams for ${selectedYear}.`}
               </p>
-              <button onClick={handleOpenAdd} style={{ padding: '10px 20px', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-                {isEs ? '+ Escribir un Sueño' : '+ Write a Dream'}
-              </button>
             </div>
           ) : (
             pendingItems.map((item, idx) => (
@@ -250,7 +269,7 @@ export function LifeList({
                   </span>
                   <div>
                     <div style={{ fontSize: '1rem', color: 'var(--text-color)', fontWeight: '500' }}>{item.text}</div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'var(--bg-color)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'var(--bg-color)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', display: 'inline-block', marginTop: '3px' }}>
                       {item.category}
                     </span>
                   </div>
@@ -287,7 +306,7 @@ export function LifeList({
               </p>
             </div>
           ) : (
-            completedItems.map((item, idx) => (
+            completedItems.map((item) => (
               <div 
                 key={item.id}
                 style={{ background: 'var(--card-bg)', padding: '16px 20px', borderRadius: '12px', border: '1px solid #10b981', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
@@ -314,61 +333,6 @@ export function LifeList({
         </div>
       )}
 
-      {/* Modal: Add New Dream */}
-      {isAddModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, padding: '20px' }}>
-          <div style={{ background: 'var(--card-bg)', padding: '28px', borderRadius: '16px', maxWidth: '480px', width: '100%', border: '1px solid var(--border-color)' }}>
-            <h3 style={{ color: 'var(--primary-color)', margin: '0 0 8px 0', fontSize: '1.3rem' }}>
-              {isEs ? `Escribir Sueño para ${selectedYear}` : `Write Dream for ${selectedYear}`}
-            </h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '20px' }}>
-              {isEs ? 'No se preocupe por el "cómo". Escríbalo con fe y detalle.' : 'Do not worry about the "how". Write it down plainly.'}
-            </p>
-
-            <form onSubmit={handleSaveItem} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <textarea 
-                required
-                rows={3}
-                placeholder={isEs ? 'Ej: Llevar a mi familia de vacaciones a Hawái...' : 'e.g., Take my entire family on a beach vacation...'}
-                value={newItemText}
-                onChange={e => setNewItemText(e.target.value)}
-                style={{ width: '100%', padding: '12px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', fontSize: '0.95rem', resize: 'none' }}
-              />
-
-              <div>
-                <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                  {isEs ? 'Categoría' : 'Category'}
-                </label>
-                <select 
-                  value={newItemCategory}
-                  onChange={e => setNewItemCategory(e.target.value)}
-                  style={{ width: '100%', padding: '10px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }}>
-                  <option value="Personal">Personal / Lifestyle</option>
-                  <option value="Financial">Financial / Money</option>
-                  <option value="Family">Family / Relationships</option>
-                  <option value="Career">Career / Business</option>
-                  <option value="Spiritual">Spiritual / Health</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button 
-                  type="submit" 
-                  style={{ flex: 1, padding: '12px', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-                  {isEs ? 'Agregar a la Lista' : 'Add to Life List'}
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setIsAddModalOpen(false)}
-                  style={{ padding: '12px 18px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer' }}>
-                  {isEs ? 'Cancelar' : 'Cancel'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Modal: Claim Victory Date Confirmation */}
       {claimingItem && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, padding: '20px' }}>
@@ -389,7 +353,7 @@ export function LifeList({
               value={claimDate} 
               onChange={e => setClaimDate(e.target.value)}
               placeholder="MM-DD-YYYY"
-              style={{ width: '100%', padding: '12px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', textAlign: 'center', fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '15px' }}
+              style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', textAlign: 'center', fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '15px' }}
             />
 
             <div style={{ display: 'flex', gap: '10px' }}>

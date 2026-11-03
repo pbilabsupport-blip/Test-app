@@ -1,112 +1,348 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../../../../context/AppContext';
+import { FiX, FiCheck } from 'react-icons/fi';
 
-export const CommandModal = ({ onClose, setIncomes, incomes, setExpenses, expenses, setAssets, assets, setLiabilities, liabilities, showToast }) => {
+function getTodayMMDDYYYY() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${mm}-${dd}-${yyyy}`;
+}
+
+export function CommandModal({
+  onClose,
+  incomes = [],
+  setIncomes,
+  expenses = [],
+  setExpenses,
+  assets = [],
+  setAssets,
+  liabilities = [],
+  setLiabilities,
+  showToast
+}) {
   const { language } = useAppContext();
   const isEs = language === 'es';
+
+  // Entry Type: 'income' | 'expense' | 'asset' | 'liability'
   const [entryType, setEntryType] = useState('income');
-  const [form, setForm] = useState({ name: '', amount: '', category: 'General', putsMoney: null, yieldAmount: '', frequency: 'monthly', nextDate: '', requiresPayments: null, isOneTime: false });
+  const [name, setName] = useState('');
+  const [amount, setAmount] = useState('');
 
-  const handleAddItem = () => {
-    if (!form.name || !form.amount) return;
-    const baseId = Date.now();
-    const itemValue = Number(form.amount);
+  // Income Specific
+  const [isPassive, setIsPassive] = useState(false);
 
-    if (entryType === 'income') setIncomes([...incomes, { id: baseId, name: form.name, amount: itemValue, category: form.category }]);
-    else if (entryType === 'expense') setExpenses([...expenses, { id: baseId, name: form.name, amount: itemValue, category: form.category }]);
-    else if (entryType === 'asset') {
-      if (form.putsMoney === true) {
-        setAssets([...assets, { id: baseId, name: form.name, amount: itemValue, yieldAmount: Number(form.yieldAmount), frequency: form.frequency, nextDate: form.nextDate }]);
-        setIncomes([...incomes, { id: baseId + 1, name: `${form.name} (Yield)`, amount: Number(form.yieldAmount), category: 'Passive', isPassive: true, linkedAssetId: baseId }]);
-      } else {
-        showToast(isEs ? 'Regla de Padre Rico: Los activos que no pagan son Pasivos. Movido automáticamente.' : 'Rich Dad Rule: Assets that do not pay you are Liabilities. Moved automatically.');
-        setLiabilities([...liabilities, { id: baseId, name: form.name, amount: itemValue, requiresPayments: false, isOneTime: false }]);
+  // Expense Specific
+  const [expenseCategory, setExpenseCategory] = useState('Necessity');
+
+  // Asset Specific
+  const [yieldAmount, setYieldAmount] = useState('');
+
+  // Liability Specific
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [nextDate, setNextDate] = useState(getTodayMMDDYYYY());
+  const [frequency, setFrequency] = useState('monthly');
+  const [isPersonalLoan, setIsPersonalLoan] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!name.trim() || !amount) return;
+
+    const numAmount = Number(amount) || 0;
+    const newId = Date.now();
+
+    if (entryType === 'income') {
+      const newIncome = {
+        id: newId,
+        name: name.trim(),
+        amount: numAmount,
+        category: isPassive ? 'Passive' : 'Active',
+        isPassive: isPassive
+      };
+      setIncomes([newIncome, ...incomes]);
+    } else if (entryType === 'expense') {
+      const newExpense = {
+        id: newId,
+        name: name.trim(),
+        amount: numAmount,
+        category: expenseCategory,
+        isOneTime: expenseCategory === 'Waste'
+      };
+      setExpenses([newExpense, ...expenses]);
+    } else if (entryType === 'asset') {
+      const newAsset = {
+        id: newId,
+        name: name.trim(),
+        amount: numAmount,
+        yieldAmount: Number(yieldAmount) || 0,
+        frequency: 'monthly',
+        nextDate: getTodayMMDDYYYY()
+      };
+      setAssets([newAsset, ...assets]);
+      // If it generates passive income, link it to the income statement automatically!
+      if (Number(yieldAmount) > 0) {
+        const linkedIncome = {
+          id: Date.now() + 1,
+          name: `${name.trim()} (Yield)`,
+          amount: Number(yieldAmount),
+          category: 'Passive',
+          isPassive: true,
+          linkedAssetId: newId
+        };
+        setIncomes([linkedIncome, ...incomes]);
+      }
+    } else if (entryType === 'liability') {
+      const newLiability = {
+        id: newId,
+        name: name.trim(),
+        amount: numAmount,
+        paymentAmount: Number(paymentAmount) || 0,
+        requiresPayments: Number(paymentAmount) > 0,
+        nextDate: nextDate.trim() || getTodayMMDDYYYY(),
+        frequency: frequency,
+        category: isPersonalLoan ? 'Personal' : 'General',
+        isPersonalLoan: isPersonalLoan
+      };
+      setLiabilities([newLiability, ...liabilities]);
+      // If it requires a monthly payment, record in recurring expenses automatically!
+      if (Number(paymentAmount) > 0) {
+        const linkedExpense = {
+          id: Date.now() + 1,
+          name: `${name.trim()} (Payment)`,
+          amount: Number(paymentAmount),
+          category: 'Necessity',
+          linkedLiabilityId: newId
+        };
+        setExpenses([linkedExpense, ...expenses]);
       }
     }
-    else if (entryType === 'liability') {
-      if (form.requiresPayments === true) {
-        setLiabilities([...liabilities, { id: baseId, name: form.name, amount: itemValue, requiresPayments: true, paymentAmount: Number(form.yieldAmount), frequency: form.frequency, nextDate: form.nextDate }]);
-        setExpenses([...expenses, { id: baseId + 1, name: `${form.name} (Payment)`, amount: Number(form.yieldAmount), category: 'Debt', linkedLiabilityId: baseId }]);
-      } else {
-        setLiabilities([...liabilities, { id: baseId, name: form.name, amount: itemValue, requiresPayments: false, isOneTime: form.isOneTime }]);
-      }
+
+    if (showToast) {
+      showToast(isEs ? '✅ Registro guardado exitosamente.' : '✅ Entry saved successfully.');
     }
     onClose();
   };
 
-  const inputStyle = { width: '100%', padding: '12px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', marginBottom: '15px', fontSize: '1rem', outline: 'none' };
-  const toggleBtnStyle = (active, color) => ({ flex: 1, padding: '10px', border: `1px solid ${color}`, background: active ? color : 'transparent', color: active ? '#fff' : color, borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' });
+  const tabStyle = (type, color) => ({
+    flex: 1,
+    padding: '12px 8px',
+    borderRadius: '8px',
+    border: entryType === type ? `2px solid ${color}` : '1px solid var(--border-color)',
+    background: entryType === type ? `${color}20` : 'var(--bg-color)',
+    color: entryType === type ? color : 'var(--text-color)',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    textAlign: 'center',
+    fontSize: '0.9rem',
+    transition: 'all 0.2s ease'
+  });
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, padding: '20px' }}>
-      <div style={{ backgroundColor: 'var(--card-bg)', padding: '30px', borderRadius: '16px', width: '100%', maxWidth: '450px', border: '1px solid var(--border-color)', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, padding: '20px' }}>
+      <div style={{ background: 'var(--card-bg)', padding: '28px', borderRadius: '16px', maxWidth: '520px', width: '100%', border: '1px solid var(--border-color)', maxHeight: '92vh', overflowY: 'auto' }}>
         
-        <h2 style={{ marginTop: 0, color: 'var(--primary-color)', marginBottom: '20px' }}>{isEs ? 'Centro de Comando' : 'Command Center'}</h2>
-        
-        <select value={entryType} onChange={(e) => { setEntryType(e.target.value); setForm({...form, putsMoney: null, requiresPayments: null, isOneTime: false}); }} style={inputStyle}>
-          <option value="income">{isEs ? 'Ingreso (Income)' : 'Income'}</option>
-          <option value="expense">{isEs ? 'Gasto (Expense)' : 'Expense'}</option>
-          <option value="asset">{isEs ? 'Activo (Asset)' : 'Asset'}</option>
-          <option value="liability">{isEs ? 'Pasivo (Liability)' : 'Liability'}</option>
-        </select>
-
-        <input type="text" placeholder={isEs ? 'Nombre del registro' : 'Name of entry'} value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} style={inputStyle} />
-        <input type="number" placeholder={isEs ? 'Valor Total ($)' : 'Total Value ($)'} value={form.amount} onChange={(e) => setForm({...form, amount: e.target.value})} style={inputStyle} />
-
-        {entryType === 'asset' && (
-          <div style={{ padding: '15px', background: 'var(--bg-color)', borderRadius: '8px', marginBottom: '15px', border: '1px solid var(--border-color)' }}>
-            <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', fontSize: '0.9rem' }}>{isEs ? '¿Pone dinero en su bolsillo?' : 'Does it put money in your pocket?'}</p>
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-              <button style={toggleBtnStyle(form.putsMoney === true, 'var(--success-color)')} onClick={() => setForm({...form, putsMoney: true})}>{isEs ? 'Sí' : 'Yes'}</button>
-              <button style={toggleBtnStyle(form.putsMoney === false, 'var(--danger-color)')} onClick={() => setForm({...form, putsMoney: false})}>No</button>
-            </div>
-            {form.putsMoney === true && (
-              <div style={{ animation: 'fadeIn 0.3s' }}>
-                  <input type="number" placeholder={isEs ? 'Rendimiento en Día de Pago ($)' : 'Yield on Payday ($)'} value={form.yieldAmount} onChange={(e) => setForm({...form, yieldAmount: e.target.value})} style={inputStyle} />
-                  <select value={form.frequency} onChange={(e) => setForm({...form, frequency: e.target.value})} style={inputStyle}>
-                    <option value="monthly">{isEs ? 'Mensual' : 'Monthly'}</option>
-                    <option value="weekly">{isEs ? 'Semanal' : 'Weekly'}</option>
-                  </select>
-                  <p style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{isEs ? 'Próximo Día de Pago:' : 'Next Payday:'}</p>
-                  <input type="date" value={form.nextDate} onChange={(e) => setForm({...form, nextDate: e.target.value})} style={inputStyle} />
-              </div>
-            )}
-          </div>
-        )}
-
-        {entryType === 'liability' && (
-          <div style={{ padding: '15px', background: 'var(--bg-color)', borderRadius: '8px', marginBottom: '15px', border: '1px solid var(--border-color)' }}>
-            <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', fontSize: '0.9rem' }}>{isEs ? '¿Requiere pagos recurrentes?' : 'Does this require payments?'}</p>
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-              <button style={toggleBtnStyle(form.requiresPayments === true, 'var(--danger-color)')} onClick={() => setForm({...form, requiresPayments: true, isOneTime: false})}>{isEs ? 'Sí' : 'Yes'}</button>
-              <button style={toggleBtnStyle(form.requiresPayments === false, 'var(--success-color)')} onClick={() => setForm({...form, requiresPayments: false})}>No</button>
-            </div>
-            {form.requiresPayments === true && (
-              <div style={{ animation: 'fadeIn 0.3s' }}>
-                  <input type="number" placeholder={isEs ? 'Costo del Pago ($)' : 'Payment Cost ($)'} value={form.yieldAmount} onChange={(e) => setForm({...form, yieldAmount: e.target.value})} style={inputStyle} />
-                  <select value={form.frequency} onChange={(e) => setForm({...form, frequency: e.target.value})} style={inputStyle}>
-                    <option value="monthly">{isEs ? 'Mensual' : 'Monthly'}</option>
-                    <option value="weekly">{isEs ? 'Semanal' : 'Weekly'}</option>
-                  </select>
-                  <p style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{isEs ? 'Próxima Fecha de Pago:' : 'Next Payment Date:'}</p>
-                  <input type="date" value={form.nextDate} onChange={(e) => setForm({...form, nextDate: e.target.value})} style={inputStyle} />
-              </div>
-            )}
-            {form.requiresPayments === false && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px', border: '1px solid var(--warning-color)', borderRadius: '8px', animation: 'fadeIn 0.3s' }}>
-                <input type="checkbox" checked={form.isOneTime} onChange={(e) => setForm({...form, isOneTime: e.target.checked})} style={{ width: '20px', height: '20px' }} />
-                <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-color)' }}>{isEs ? 'Compra Única (Sube % Desperdicio)' : '1-Time Purchase (Adds to Waste %)'}</span>
-              </label>
-            )}
-          </div>
-        )}
-        
-        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-          <button onClick={handleAddItem} style={{ flex: 1, padding: '14px', backgroundColor: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>{isEs ? 'Ejecutar' : 'Execute'}</button>
-          <button onClick={onClose} style={{ flex: 1, padding: '14px', backgroundColor: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>{isEs ? 'Cancelar' : 'Cancel'}</button>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3 style={{ margin: 0, color: 'var(--text-color)', fontSize: '1.3rem' }}>
+            {isEs ? 'Centro de Comando (Nuevo Registro)' : 'Command Center (New Entry)'}
+          </h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}>
+            <FiX />
+          </button>
         </div>
+
+        {/* 4 Clean Category Selector Tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+          <button type="button" onClick={() => setEntryType('income')} style={tabStyle('income', '#10b981')}>
+            💰 {isEs ? 'Ingreso' : 'Income'}
+          </button>
+          <button type="button" onClick={() => setEntryType('expense')} style={tabStyle('expense', '#ef4444')}>
+            💸 {isEs ? 'Gasto' : 'Expense'}
+          </button>
+          <button type="button" onClick={() => setEntryType('asset')} style={tabStyle('asset', 'var(--primary-color)')}>
+            🏠 {isEs ? 'Activo' : 'Asset'}
+          </button>
+          <button type="button" onClick={() => setEntryType('liability')} style={tabStyle('liability', '#f59e0b')}>
+            📄 {isEs ? 'Deuda' : 'Debt'}
+          </button>
+        </div>
+
+        {/* Dynamic Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          
+          {/* Concept Name */}
+          <div>
+            <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+              {isEs ? 'Nombre del Registro' : 'Entry Name'}
+            </label>
+            <input 
+              type="text" 
+              required
+              placeholder={
+                entryType === 'income' ? (isEs ? 'Ej: Salario / Dividendos' : 'e.g., Salary / Dividends') :
+                entryType === 'expense' ? (isEs ? 'Ej: Supermercado / Electricidad' : 'e.g., Groceries / Electric Bill') :
+                entryType === 'asset' ? (isEs ? 'Ej: Casa de Renta / Acciones' : 'e.g., Rental Duplex / Stock Portfolio') :
+                (isEs ? 'Ej: Préstamo de Auto / Préstamo Familiar' : 'e.g., Car Loan / Family Handshake Loan')
+              }
+              value={name} 
+              onChange={e => setName(e.target.value)}
+              style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', fontSize: '1rem', outline: 'none' }} 
+            />
+          </div>
+
+          {/* Amount */}
+          <div>
+            <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+              {entryType === 'income' ? (isEs ? 'Monto Mensual ($)' : 'Monthly Income ($)') :
+               entryType === 'expense' ? (isEs ? 'Monto del Gasto ($)' : 'Expense Amount ($)') :
+               entryType === 'asset' ? (isEs ? 'Valor Total del Activo ($)' : 'Total Asset Value ($)') :
+               (isEs ? 'Saldo Total de la Deuda ($)' : 'Total Debt Balance ($)')}
+            </label>
+            <input 
+              type="number" 
+              required
+              placeholder="0.00" 
+              value={amount} 
+              onChange={e => setAmount(e.target.value)}
+              style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', outline: 'none' }} 
+            />
+          </div>
+
+          {/* TYPE-SPECIFIC DETAILS */}
+          
+          {/* 1. INCOME: Passive vs Active Toggle */}
+          {entryType === 'income' && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-color)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div>
+                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
+                  {isEs ? '¿Es Ingreso Pasivo?' : 'Is this Passive Income?'}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {isEs ? 'Cuenta para su medidor de libertad financiera.' : 'Counts toward your freedom gauge.'}
+                </div>
+              </div>
+              <input 
+                type="checkbox" 
+                checked={isPassive} 
+                onChange={e => setIsPassive(e.target.checked)}
+                style={{ width: '20px', height: '20px', cursor: 'pointer' }} 
+              />
+            </div>
+          )}
+
+          {/* 2. EXPENSE: Necessity vs Waste Toggle */}
+          {entryType === 'expense' && (
+            <div>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                {isEs ? 'Clasificación del Gasto' : 'Expense Category'}
+              </label>
+              <select 
+                value={expenseCategory} 
+                onChange={e => setExpenseCategory(e.target.value)}
+                style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', fontSize: '0.95rem' }}>
+                <option value="Necessity">{isEs ? 'Necesidad Vital (Vivienda, Comida, Salud)' : 'Essential Necessity (Housing, Food, Health)'}</option>
+                <option value="Waste">{isEs ? 'Gasto Hormiga / Lujo (No Esencial)' : 'Waste / Non-Essential (Luxury, Entertainment)'}</option>
+              </select>
+            </div>
+          )}
+
+          {/* 3. ASSET: Monthly Yield (Passive Cash Flow) */}
+          {entryType === 'asset' && (
+            <div>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                {isEs ? 'Flujo de Caja Mensual que Produce ($ / mes - Opcional)' : 'Monthly Passive Yield ($ / mo - Optional)'}
+              </label>
+              <input 
+                type="number" 
+                placeholder={isEs ? 'Ej: 250 (si genera dividendos o renta)' : 'e.g. 250 (if yields rental/dividends)'} 
+                value={yieldAmount} 
+                onChange={e => setYieldAmount(e.target.value)}
+                style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }} 
+              />
+            </div>
+          )}
+
+          {/* 4. LIABILITY: Monthly Payment & Due Date in MM-DD-YYYY */}
+          {entryType === 'liability' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                    {isEs ? 'Cuota Mensual ($)' : 'Monthly Payment ($)'}
+                  </label>
+                  <input 
+                    type="number" 
+                    placeholder="350.00" 
+                    value={paymentAmount} 
+                    onChange={e => setPaymentAmount(e.target.value)}
+                    style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }} 
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                    {isEs ? 'Frecuencia' : 'Frequency'}
+                  </label>
+                  <select 
+                    value={frequency} 
+                    onChange={e => setFrequency(e.target.value)}
+                    style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }}>
+                    <option value="monthly">{isEs ? 'Mensual' : 'Monthly'}</option>
+                    <option value="weekly">{isEs ? 'Semanal' : 'Weekly'}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                  {isEs ? 'Fecha del Próximo Pago (Formato MM-DD-YYYY)' : 'Next Due Date (MM-DD-YYYY Format)'}
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="MM-DD-YYYY"
+                  value={nextDate} 
+                  onChange={e => setNextDate(e.target.value)}
+                  style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', fontWeight: 'bold' }} 
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-color)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <span style={{ fontSize: '0.85rem' }}>
+                  🤝 {isEs ? '¿Es un préstamo personal o informal?' : 'Is this a personal handshake loan?'}
+                </span>
+                <input 
+                  type="checkbox" 
+                  checked={isPersonalLoan} 
+                  onChange={e => setIsPersonalLoan(e.target.checked)}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }} 
+                />
+              </div>
+
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+            <button 
+              type="submit" 
+              style={{ flex: 1, padding: '14px', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <FiCheck /> {isEs ? 'Guardar en mi Bóveda' : 'Save to Vault'}
+            </button>
+            <button 
+              type="button" 
+              onClick={onClose}
+              style={{ padding: '14px 20px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer' }}>
+              {isEs ? 'Cancelar' : 'Cancel'}
+            </button>
+          </div>
+
+        </form>
 
       </div>
     </div>
   );
-};
+}
+
+export default CommandModal;

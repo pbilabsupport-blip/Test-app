@@ -1,40 +1,54 @@
 :root {
-  --primary-color: #d4af37; /* Rich Dad Gold */
+  --primary-color: #d4af37; /* Luxury Rich Dad Gold */
+  --primary-hover: #b89628;
   --success-color: #10b981;
   --danger-color: #ef4444;
   --warning-color: #f59e0b;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* DARK THEME (Default) */
+/* ==============================================================================
+   DARK THEME (Executive Midnight Obsidian)
+   ============================================================================== */
 [data-theme='dark'] {
-  --bg-color: #0f172a;
-  --card-bg: #1e293b;
-  --text-color: #f8fafc;
-  --text-muted: #94a3b8;
-  --border-color: #334155;
+  --bg-color: #0b0f19;        /* Deep midnight */
+  --card-bg: #151d30;         /* Refined card slate */
+  --card-hover: #1c2742;
+  --text-color: #f8fafc;      /* Crisp platinum white */
+  --text-muted: #94a3b8;      /* Soft silver */
+  --border-color: #24304f;    /* Subtle navy border */
+  --primary-color: #d4af37;
+  --input-bg: #0b0f19;
 }
 
-/* LIGHT THEME */
+/* ==============================================================================
+   LIGHT THEME (Warm Platinum & Cream - ZERO Eye Strain)
+   ============================================================================== */
 [data-theme='light'] {
-  --bg-color: #f8fafc;
-  --card-bg: #ffffff;
-  --text-color: #0f172a;
-  --text-muted: #64748b;
-  --border-color: #e2e8f0;
+  --bg-color: #f1f4f9;        /* Soft platinum - never blinding white */
+  --card-bg: #ffffff;         /* Clean white cards */
+  --card-hover: #e8ecf4;
+  --text-color: #0f172a;      /* Deep legible navy-charcoal */
+  --text-muted: #64748b;      /* High-contrast slate */
+  --border-color: #d8e1ed;    /* Gentle card borders */
+  --primary-color: #b48c26;   /* Burnished rich gold with dark contrast */
+  --input-bg: #f8fafc;
 }
 
-/* GRAYSCALE THEME */
+/* ==============================================================================
+   GRAYSCALE / FOCUS THEME
+   ============================================================================== */
 [data-theme='grayscale'] {
-  --primary-color: #71717a;
-  --success-color: #52525b;
-  --danger-color: #3f3f46;
-  --warning-color: #a1a1aa;
+  --primary-color: #52525b;
+  --success-color: #3f3f46;
+  --danger-color: #27272a;
+  --warning-color: #71717a;
   --bg-color: #f4f4f5;
   --card-bg: #ffffff;
   --text-color: #18181b;
   --text-muted: #71717a;
   --border-color: #d4d4d8;
+  --input-bg: #fafafa;
 }
 
 * {
@@ -46,22 +60,24 @@ body {
   padding: 0;
   background-color: var(--bg-color);
   color: var(--text-color);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 0.25s ease, color 0.25s ease;
+  -webkit-font-smoothing: antialiased;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Hide scrollbar for a cleaner app feel but keep functionality */
+/* Clean Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: var(--bg-color);
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border-color);
-  border-radius: 3px;
+  border-radius: 4px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }

@@ -1,6 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../../../../context/AppContext';
-import { FiX, FiSend, FiMic, FiMicOff, FiSettings, FiVolume2, FiVolumeX, FiLock, FiExternalLink } from 'react-icons/fi';
+import { FiX, FiSend, FiMic, FiMicOff, FiSettings, FiVolume2, FiVolumeX, FiLock, FiExternalLink, FiZap } from 'react-icons/fi';
+
+// Provider Definitions & Free Daily Limits
+const PROVIDERS = {
+  groq: {
+    name: 'GroqCloud',
+    badge: '100% Free Forever (14,400/day)',
+    model: 'llama-3.3-70b-versatile',
+    endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+    keyLink: 'https://console.groq.com/keys',
+    keyPrefix: 'gsk_...',
+    infoEs: '⚡ Recomendado: 14,400 preguntas gratis que se recargan cada 24 horas. Regístrese con Google, sin tarjeta de crédito.',
+    infoEn: '⚡ Recommended: 14,400 free questions reset every 24 hours. Sign in with Google, zero credit card required.'
+  },
+  gemini: {
+    name: 'Google Gemini',
+    badge: '100% Free Forever (1,500/day)',
+    model: 'gemini-1.5-flash',
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    keyLink: 'https://aistudio.google.com/app/apikey',
+    keyPrefix: 'AIzaSy...',
+    infoEs: '🧠 Google AI Studio: 1,500 preguntas gratis cada 24 horas sin tarjeta de crédito.',
+    infoEn: '🧠 Google AI Studio: 1,500 free questions reset every 24 hours, zero credit card needed.'
+  },
+  openai: {
+    name: 'OpenAI',
+    badge: 'Bring Your Own Key',
+    model: 'gpt-4o-mini',
+    endpoint: 'https://api.openai.com/v1/chat/completions',
+    keyLink: 'https://platform.openai.com/api-keys',
+    keyPrefix: 'sk-proj-...',
+    infoEs: '🤖 Clave estándar de OpenAI (se consumen créditos de su cuenta de desarrollador).',
+    infoEn: '🤖 Standard OpenAI developer key (consumes credits from your OpenAI account).'
+  }
+};
 
 export function AiAssistant({ 
   isOpen, 
@@ -21,6 +55,7 @@ export function AiAssistant({
   const buyUrl = process.env.REACT_APP_GUMROAD_URL || 'https://gumroad.com';
 
   // Assistant Configuration (Stored locally on user device for 100% privacy)
+  const [provider, setProvider] = useState(() => localStorage.getItem('pbi_ai_provider') || 'groq');
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('pbi_ai_api_key') || '');
   const [nickname, setNickname] = useState(() => localStorage.getItem('pbi_ai_nickname') || (isEs ? 'Mi Asesor CFO' : 'My AI CFO'));
   const [isVoiceOutputEnabled, setIsVoiceOutputEnabled] = useState(() => localStorage.getItem('pbi_ai_voice_out') === 'true');
@@ -31,7 +66,7 @@ export function AiAssistant({
     {
       role: 'assistant',
       content: isEs
-        ? `Hola, soy tu estratega financiero personal y coach de vida. Conozco tus números, tus deudas y tus metas en el Tablero de Visión. ¿En qué te puedo ayudar hoy?`
+        ? `Hola, soy tu estratega financiero personal y coach de vida. Conozco tus números, tus deudas y tus metas en el Tablero de Visión. ¿En qué te puedo asesorar hoy?`
         : `Hello, I am your personal financial strategist and life coach. I have full visibility of your cash flow, debts, and Vision Board goals. How can I guide you today?`
     }
   ]);
@@ -48,6 +83,7 @@ export function AiAssistant({
   // Save Settings
   const handleSaveSettings = (e) => {
     e.preventDefault();
+    localStorage.setItem('pbi_ai_provider', provider);
     localStorage.setItem('pbi_ai_api_key', apiKey.trim());
     localStorage.setItem('pbi_ai_nickname', nickname.trim());
     localStorage.setItem('pbi_ai_voice_out', isVoiceOutputEnabled.toString());
@@ -145,7 +181,7 @@ STRICT INSTRUCTIONS:
 `;
   };
 
-  // Send Message to OpenAI Compatible API
+  // Send Message to Selected Provider
   const handleSendMessage = async (customPrompt) => {
     const textToSend = customPrompt || inputMessage;
     if (!textToSend.trim() || isLoading) return;
@@ -155,6 +191,8 @@ STRICT INSTRUCTIONS:
       return;
     }
 
+    const currentProviderConfig = PROVIDERS[provider] || PROVIDERS.groq;
+
     const userMsg = { role: 'user', content: textToSend.trim() };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
@@ -162,20 +200,20 @@ STRICT INSTRUCTIONS:
     setIsLoading(true);
 
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch(currentProviderConfig.endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey.trim()}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: currentProviderConfig.model,
           messages: [
             { role: 'system', content: constructSystemPrompt() },
             ...updatedMessages.slice(-6) // Keep last 6 exchanges for context
           ],
           temperature: 0.7,
-          max_tokens: 450
+          max_tokens: 500
         })
       });
 
@@ -189,8 +227,8 @@ STRICT INSTRUCTIONS:
       speakAloud(aiReply);
     } catch (err) {
       const errorMsg = isEs
-        ? `Error de conexión: Verifique su clave API en la configuración (⚙️). Detalle: ${err.message}`
-        : `Connection error: Please check your API key in settings (⚙️). Detail: ${err.message}`;
+        ? `Error de conexión con ${currentProviderConfig.name}: Verifique su clave API en la configuración (⚙️). Detalle: ${err.message}`
+        : `Connection error with ${currentProviderConfig.name}: Please check your API key in settings (⚙️). Detail: ${err.message}`;
       setMessages([...updatedMessages, { role: 'assistant', content: errorMsg }]);
     } finally {
       setIsLoading(false);
@@ -217,7 +255,7 @@ STRICT INSTRUCTIONS:
                 <span style={{ fontSize: '0.7rem', background: 'rgba(212, 175, 55, 0.2)', color: 'var(--primary-color)', padding: '2px 6px', borderRadius: '8px', fontWeight: 'bold' }}>PRO</span>
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {isEs ? 'Estratega Financiero y Coach de Vida' : 'Financial Strategist & Life Coach'}
+                {PROVIDERS[provider]?.name} · {isEs ? 'Recarga Gratis Diaria' : 'Free Daily Resets'}
               </div>
             </div>
           </div>
@@ -254,8 +292,8 @@ STRICT INSTRUCTIONS:
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', maxWidth: '480px', lineHeight: '1.6', margin: 0 }}>
               {isEs 
-                ? 'Conéctese con su estratega financiero personal. Controle su propio modelo AI (OpenAI / Claude), asígnele un nombre personalizado, hable con su voz y reciba consejos basados en sus números reales por $5.00/mes.'
-                : 'Connect with your private financial strategist. Bring your own AI key, customize its nickname, talk with your voice, and get actionable coaching grounded strictly in your real vault numbers for $5.00/mo.'}
+                ? 'Conéctese con su estratega financiero personal. Utilice claves de IA gratuitas que se recargan cada 24 horas (sin costo de API para usted), hable con su voz y reciba consejos basados en sus números reales por $5.00/mes.'
+                : 'Connect with your private financial strategist. Use 100% free daily AI keys that reset every 24 hours (zero extra API cost for you), talk with your voice, and get actionable coaching grounded in your vault for $5.00/mo.'}
             </p>
             <a 
               href={buyUrl} 
@@ -272,14 +310,14 @@ STRICT INSTRUCTIONS:
               
               {/* Notice if API key is missing */}
               {!apiKey && (
-                <div style={{ background: 'rgba(212, 175, 55, 0.1)', border: '1px solid var(--primary-color)', padding: '12px 16px', borderRadius: '10px', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ background: 'rgba(212, 175, 55, 0.1)', border: '1px solid var(--primary-color)', padding: '12px 16px', borderRadius: '10px', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <span>
-                    🔑 {isEs ? 'Configure su clave API de OpenAI para comenzar a chatear.' : 'Enter your OpenAI API key in settings to start.'}
+                    🔑 {isEs ? 'Obtenga su clave gratuita que se recarga cada 24 horas en ajustes.' : 'Get your free 24-hour renewing key in settings.'}
                   </span>
                   <button 
                     onClick={() => setIsSettingsOpen(true)}
-                    style={{ background: 'var(--primary-color)', color: '#000', border: 'none', padding: '6px 12px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-                    {isEs ? 'Configurar' : 'Setup'}
+                    style={{ background: 'var(--primary-color)', color: '#000', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>
+                    {isEs ? 'Obtener Clave Gratis' : 'Get Free Key'}
                   </button>
                 </div>
               )}
@@ -310,7 +348,7 @@ STRICT INSTRUCTIONS:
 
               {isLoading && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  <span>🤖 {nickname} {isEs ? 'está analizando su bóveda...' : 'is analyzing your vault...'}</span>
+                  <span>🤖 {nickname} ({PROVIDERS[provider]?.name}) {isEs ? 'está analizando su bóveda...' : 'is analyzing your vault...'}</span>
                 </div>
               )}
 
@@ -321,17 +359,17 @@ STRICT INSTRUCTIONS:
             <div style={{ padding: '8px 16px', display: 'flex', gap: '8px', overflowX: 'auto', background: 'var(--bg-color)', borderTop: '1px solid var(--border-color)' }}>
               <button 
                 onClick={() => handleSendMessage(isEs ? '¿Cómo puedo pagar mis deudas más rápido?' : 'Which debt should I attack first?')}
-                style={{ whiteSpace: 'nowrap', padding: '5px 10px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '14px', fontSize: '0.75rem', cursor: 'pointer' }}>
+                style={{ whiteSpace: 'nowrap', padding: '6px 12px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '14px', fontSize: '0.75rem', cursor: 'pointer' }}>
                 💡 {isEs ? '¿Qué deuda pago primero?' : 'Which debt first?'}
               </button>
               <button 
                 onClick={() => handleSendMessage(isEs ? '¿Puedo permitirme gastar $200 este fin de semana?' : 'Can I afford to spend $200 this weekend?')}
-                style={{ whiteSpace: 'nowrap', padding: '5px 10px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '14px', fontSize: '0.75rem', cursor: 'pointer' }}>
+                style={{ whiteSpace: 'nowrap', padding: '6px 12px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '14px', fontSize: '0.75rem', cursor: 'pointer' }}>
                 💳 {isEs ? '¿Puedo gastar $200 hoy?' : 'Can I spend $200 today?'}
               </button>
               <button 
                 onClick={() => handleSendMessage(isEs ? '¿Cómo acelero mi fecha de libertad financiera?' : 'How do I speed up my Freedom Date?')}
-                style={{ whiteSpace: 'nowrap', padding: '5px 10px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '14px', fontSize: '0.75rem', cursor: 'pointer' }}>
+                style={{ whiteSpace: 'nowrap', padding: '6px 12px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '14px', fontSize: '0.75rem', cursor: 'pointer' }}>
                 ⏳ {isEs ? 'Acelerar libertad' : 'Speed up Freedom Date'}
               </button>
             </div>
@@ -368,23 +406,20 @@ STRICT INSTRUCTIONS:
 
       </div>
 
-      {/* Settings Modal (API Key & Nickname) */}
+      {/* Settings Modal (Multi-Provider: Groq Free / Gemini Free / OpenAI) */}
       {isSettingsOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 5000, padding: '20px' }}>
-          <div style={{ background: 'var(--card-bg)', padding: '28px', borderRadius: '16px', maxWidth: '460px', width: '100%', border: '2px solid var(--primary-color)' }}>
-            <h3 style={{ color: 'var(--primary-color)', margin: '0 0 10px 0' }}>
-              ⚙️ {isEs ? 'Configuración de Asistente AI' : 'AI Assistant Settings'}
+          <div style={{ background: 'var(--card-bg)', padding: '28px', borderRadius: '16px', maxWidth: '480px', width: '100%', border: '2px solid var(--primary-color)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ color: 'var(--primary-color)', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FiSettings /> {isEs ? 'Configuración de Asistente AI' : 'AI Assistant Settings'}
             </h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: '1.5', marginBottom: '18px' }}>
-              {isEs 
-                ? 'Su clave se guarda exclusivamente en su dispositivo. P.B.I. Labs nunca almacena ni revende sus consultas.' 
-                : 'Your API key is stored only on your personal device. P.B.I. Labs never stores or resells your queries.'}
-            </p>
-
+            
             <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              {/* Nickname Input */}
               <div>
                 <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                  {isEs ? 'Apodo del Asistente' : 'Assistant Nickname'}
+                  {isEs ? 'Apodo de su Asistente' : 'Assistant Nickname'}
                 </label>
                 <input 
                   type="text" 
@@ -395,26 +430,68 @@ STRICT INSTRUCTIONS:
                 />
               </div>
 
+              {/* Provider Selector Tabs */}
               <div>
                 <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                  OpenAI API Key (`sk-...`)
+                  {isEs ? 'Proveedor de Inteligencia Artificial' : 'AI Engine Provider'}
                 </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                  {Object.keys(PROVIDERS).map((key) => {
+                    const p = PROVIDERS[key];
+                    const isSelected = provider === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => { setProvider(key); setApiKey(''); }}
+                        style={{
+                          padding: '10px 8px',
+                          borderRadius: '8px',
+                          border: isSelected ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                          background: isSelected ? 'rgba(212, 175, 55, 0.15)' : 'var(--bg-color)',
+                          color: isSelected ? 'var(--primary-color)' : 'var(--text-color)',
+                          fontWeight: 'bold',
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          textAlign: 'center'
+                        }}>
+                        {p.name}
+                        {key === 'groq' && <div style={{ fontSize: '0.65rem', color: '#10b981' }}>⚡ 100% Free Daily</div>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Provider Info Alert Box */}
+              <div style={{ background: 'var(--bg-color)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                {isEs ? PROVIDERS[provider]?.infoEs : PROVIDERS[provider]?.infoEn}
+              </div>
+
+              {/* API Key Input */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {PROVIDERS[provider]?.name} API Key
+                  </label>
+                  <a 
+                    href={PROVIDERS[provider]?.keyLink} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    style={{ fontSize: '0.75rem', color: 'var(--primary-color)', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'underline' }}>
+                    {isEs ? 'Obtener clave gratis aquí' : 'Get free key here'} <FiExternalLink />
+                  </a>
+                </div>
                 <input 
                   type="password" 
                   value={apiKey} 
                   onChange={e => setApiKey(e.target.value)}
-                  placeholder="sk-proj-..."
+                  placeholder={PROVIDERS[provider]?.keyPrefix}
                   style={{ width: '100%', padding: '10px 12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', fontFamily: 'monospace' }}
                 />
-                <a 
-                  href="https://platform.openai.com/api-keys" 
-                  target="_blank" 
-                  rel="noreferrer"
-                  style={{ fontSize: '0.75rem', color: 'var(--primary-color)', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '6px', textDecoration: 'underline' }}>
-                  {isEs ? 'Obtener clave en OpenAI ($0.001/pregunta)' : 'Get an API key on OpenAI ($0.001/query)'} <FiExternalLink />
-                </a>
               </div>
 
+              {/* Voice Output Toggle */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                 <span style={{ fontSize: '0.85rem' }}>
                   🗣️ {isEs ? 'Respuesta con Voz (Hablar en voz alta)' : 'Voice Audio Response'}

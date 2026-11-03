@@ -7,6 +7,7 @@ import { ActionCenter } from './components/ActionCenter';
 import { VisionBoard } from './components/VisionBoard';
 import { LifeList } from './components/LifeList';
 import { CommandModal } from './components/CommandModal';
+import { AiAssistant } from './components/AiAssistant';
 import AdSlot from '../../../components/ads/AdSlot';
 import usePaymentReminders from '../../../hooks/usePaymentReminders';
 import { useReminderPrefsState } from '../../../components/reminders/ReminderSettings';
@@ -22,6 +23,7 @@ export function CashFlowEngine() {
   // Navigation tabs: 'dashboard' | 'statement' | 'actions' | 'vision' | 'lifelist'
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAiOpen, setIsAiOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [isCloudSynced, setIsCloudSynced] = useState(false);
 
@@ -125,7 +127,6 @@ export function CashFlowEngine() {
           if (Array.isArray(data.life_list)) setLifeList(data.life_list);
           setIsCloudSynced(true);
         } else if (!data && user) {
-          // Initialize first-time row in Supabase
           await supabase.from('user_vault').insert([{
             user_id: user.id,
             incomes,
@@ -150,7 +151,6 @@ export function CashFlowEngine() {
   // 2. CLOUD & LOCAL SYNC: Save on every state update (debounced by 800ms)
   const isFirstRender = useRef(true);
   useEffect(() => {
-    // Save to local device immediately
     localStorage.setItem(`${storageKey}_incomes`, JSON.stringify(incomes));
     localStorage.setItem(`${storageKey}_expenses`, JSON.stringify(expenses));
     localStorage.setItem(`${storageKey}_assets`, JSON.stringify(assets));
@@ -158,7 +158,6 @@ export function CashFlowEngine() {
     localStorage.setItem(`${storageKey}_vision_cards`, JSON.stringify(visionCards));
     localStorage.setItem(`${storageKey}_life_list`, JSON.stringify(lifeList));
 
-    // Skip cloud save on initial mount to avoid overwrite before hydration
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
@@ -356,6 +355,45 @@ export function CashFlowEngine() {
           showToast={showToast}
         />
       )}
+
+      {/* Floating AI CFO Launcher Beacon */}
+      <button 
+        onClick={() => setIsAiOpen(true)}
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          background: 'linear-gradient(135deg, #d4af37 0%, #b48c26 100%)',
+          color: '#000',
+          border: 'none',
+          padding: '14px 22px',
+          borderRadius: '30px',
+          fontWeight: 'bold',
+          cursor: 'pointer',
+          boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '0.95rem'
+        }}>
+        <span>🤖</span> {isEs ? 'Mi Asesor CFO' : 'AI CFO Assistant'}
+      </button>
+
+      {/* The Personal AI CFO Assistant Modal */}
+      <AiAssistant 
+        isOpen={isAiOpen}
+        onClose={() => setIsAiOpen(false)}
+        incomes={incomes}
+        expenses={expenses}
+        assets={assets}
+        liabilities={liabilities}
+        cashFlow={cashFlow}
+        gaugeValue={gaugeValue}
+        visionCards={visionCards}
+        lifeList={lifeList}
+      />
+
     </div>
   );
 }

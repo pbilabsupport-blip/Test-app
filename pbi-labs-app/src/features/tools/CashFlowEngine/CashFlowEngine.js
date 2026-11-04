@@ -16,10 +16,10 @@ export function CashFlowEngine() {
   const isEs = language === 'es';
   const isPro = authSession?.tier === 'pro';
 
-  // Local storage namespace fallback
-  const storageKey = `pbi_vault_data_${authSession?.email || 'default'}`;
+  // VERSION 2 STORAGE KEY: This forces the browser to drop the old "Spanglish" memory and load fresh!
+  const storageKey = `pbi_vault_data_v2_${authSession?.email || 'default'}`;
 
-  // Navigation tabs: 'dashboard' | 'statement' | 'actions' | 'vision' | 'lifelist'
+  // Navigation tabs
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
@@ -30,45 +30,45 @@ export function CashFlowEngine() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // Financial States initialized with Local Storage for instant startup
+  // Financial States initialized with Clean, Single-Language Defaults
   const [incomes, setIncomes] = useState(() => {
     const saved = localStorage.getItem(`${storageKey}_incomes`);
     return saved ? JSON.parse(saved) : [
-      { id: 1, name: 'Salary / Salario', category: 'Active', amount: 3000 },
-      { id: 2, name: 'Dividends / Dividendos', category: 'Passive', amount: 250, isPassive: true }
+      { id: 1, name: isEs ? 'Salario' : 'Salary', category: 'Active', amount: 3000 },
+      { id: 2, name: isEs ? 'Dividendos' : 'Dividends', category: 'Passive', amount: 250, isPassive: true }
     ];
   });
 
   const [expenses, setExpenses] = useState(() => {
     const saved = localStorage.getItem(`${storageKey}_expenses`);
     return saved ? JSON.parse(saved) : [
-      { id: 1, name: 'Housing / Vivienda', category: 'Necessity', amount: 1200 },
-      { id: 2, name: 'Groceries / Comida', category: 'Necessity', amount: 600 },
-      { id: 3, name: 'Entertainment / Entretenimiento', category: 'Waste', amount: 200, isOneTime: true }
+      { id: 1, name: isEs ? 'Vivienda' : 'Housing', category: 'Necessity', amount: 1200 },
+      { id: 2, name: isEs ? 'Comida' : 'Groceries', category: 'Necessity', amount: 600 },
+      { id: 3, name: isEs ? 'Entretenimiento' : 'Entertainment', category: 'Waste', amount: 200, isOneTime: true }
     ];
   });
 
   const [assets, setAssets] = useState(() => {
     const saved = localStorage.getItem(`${storageKey}_assets`);
     return saved ? JSON.parse(saved) : [
-      { id: 1, name: 'Real Estate / Bienes Raíces', amount: 50000, yieldAmount: 250, frequency: 'monthly', nextDate: '2026-08-01' }
+      { id: 1, name: isEs ? 'Bienes Raíces' : 'Real Estate', amount: 50000, yieldAmount: 250, frequency: 'monthly', nextDate: '12-01-2026' }
     ];
   });
 
   const [liabilities, setLiabilities] = useState(() => {
     const saved = localStorage.getItem(`${storageKey}_liabilities`);
     return saved ? JSON.parse(saved) : [
-      { id: 1, name: 'Car Loan / Préstamo de Auto', amount: 8000, requiresPayments: true, paymentAmount: 350, frequency: 'monthly', nextDate: '2026-08-15' }
+      { id: 1, name: isEs ? 'Préstamo de Auto' : 'Car Loan', amount: 8000, requiresPayments: true, paymentAmount: 350, frequency: 'monthly', nextDate: '12-15-2026' }
     ];
   });
 
-  // Phase 2: Vision Board & 100-Item Life List States
+  // Vision Board & Life List States with Clean Defaults
   const [visionCards, setVisionCards] = useState(() => {
     const saved = localStorage.getItem(`${storageKey}_vision_cards`);
     return saved ? JSON.parse(saved) : [
       {
         id: 1,
-        title: 'First Rental Property / Primera Propiedad',
+        title: isEs ? 'Primera Propiedad de Renta' : 'First Rental Property',
         targetAmount: 25000,
         currentAmount: 4500,
         targetDate: '12-31-2027',
@@ -84,7 +84,7 @@ export function CashFlowEngine() {
     return saved ? JSON.parse(saved) : [
       {
         id: 1,
-        text: 'Achieve 100% Financial Freedom / Libertad Financiera',
+        text: isEs ? 'Alcanzar 100% de Libertad Financiera' : 'Achieve 100% Financial Freedom',
         category: 'Financial',
         year: currentYear,
         isCompleted: false,
@@ -97,7 +97,7 @@ export function CashFlowEngine() {
   const [reminderPrefs, setReminderPrefs] = useReminderPrefsState();
   usePaymentReminders(liabilities, reminderPrefs);
 
-  // 1. CLOUD HYDRATION: Pull safe cloud records from Supabase on start
+  // 1. CLOUD HYDRATION
   useEffect(() => {
     let isMounted = true;
     const hydrateFromSupabase = async () => {
@@ -146,7 +146,7 @@ export function CashFlowEngine() {
     return () => { isMounted = false; };
   }, [authSession?.email]);
 
-  // 2. CLOUD & LOCAL SYNC: Save on every state update (debounced by 800ms)
+  // 2. CLOUD & LOCAL SYNC
   const isFirstRender = useRef(true);
   useEffect(() => {
     localStorage.setItem(`${storageKey}_incomes`, JSON.stringify(incomes));
@@ -217,7 +217,7 @@ export function CashFlowEngine() {
   };
 
   const navButtonStyle = (tabName) => ({
-    flex: '1 1 auto', // Allows buttons to grow and shrink smoothly
+    flex: '1 1 auto',
     padding: '12px 16px',
     borderRadius: '8px',
     border: 'none',
@@ -293,6 +293,7 @@ export function CashFlowEngine() {
           gaugeValue={gaugeValue}
           gaugeColor={gaugeColor}
           wastePercentage={wastePercentage}
+          visionCards={visionCards}
         />
       )}
 

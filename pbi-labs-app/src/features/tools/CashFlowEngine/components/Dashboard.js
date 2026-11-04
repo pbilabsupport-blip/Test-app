@@ -10,7 +10,8 @@ export function Dashboard({
   cashFlow = 0, 
   gaugeValue = 0, 
   gaugeColor = '#ef4444', 
-  wastePercentage = 0 
+  wastePercentage = 0,
+  visionCards = [] 
 }) {
   const { language, authSession } = useAppContext();
   const isEs = language === 'es';
@@ -19,22 +20,119 @@ export function Dashboard({
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const buyUrl = process.env.REACT_APP_GUMROAD_URL || 'https://gumroad.com';
 
-  // Total Calculations
   const totalExpense = expenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
   const passiveIncome = incomes
     .filter(i => i.isPassive || i.category === 'Passive')
     .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
 
-  // Pro Feature: Freedom Date Projection Engine
-  const calculateFreedomDate = () => {
-    if (gaugeValue >= 100) {
-      return { isAchieved: true };
+  // ============================================================================
+  // "SMART MOVES" ALGORITHMIC CFO ENGINE
+  // ============================================================================
+  const generateSmartMove = () => {
+    const surplus = cashFlow;
+    
+    // SCENARIO 1: Deficit (Bleeding Money)
+    if (surplus < 0) {
+      const deficit = Math.abs(surplus);
+      const waste = expenses
+        .filter(e => e.category === 'Waste' || e.isOneTime)
+        .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+        
+      if (waste >= deficit) {
+        return {
+          icon: '⚠️', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)',
+          title: isEs ? 'Alerta de Sangrado' : 'Bleeding Alert',
+          text: isEs
+            ? `Sus gastos superan sus ingresos por $${deficit.toLocaleString()}. Recorte $${deficit.toLocaleString()} de sus gastos "No Esenciales" este mes para volver a estar en verde.`
+            : `Your expenses exceed your income by $${deficit.toLocaleString()}. Cut $${deficit.toLocaleString()} from your "Non-Essential" spending this month to get back in the green.`
+        };
+      } else {
+        return {
+          icon: '🚨', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)',
+          title: isEs ? 'Déficit Crítico' : 'Critical Deficit',
+          text: isEs
+            ? `Tiene un déficit de $${deficit.toLocaleString()}. Necesita reducir gastos de vivienda/comida o encontrar una nueva fuente de ingresos urgentemente.`
+            : `You are running a $${deficit.toLocaleString()} deficit. You need to reduce essential expenses or find a new income source urgently.`
+        };
+      }
+    } 
+    
+    // SCENARIO 2: Breaking Even
+    if (surplus === 0) {
+      return {
+        icon: '⚖️', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)',
+        title: isEs ? 'Punto de Equilibrio' : 'Breaking Even',
+        text: isEs
+          ? `Está en punto de equilibrio exacto ($0). Busque recortar gastos no esenciales para generar capital de inversión.`
+          : `You are exactly breaking even ($0). Look to cut non-essential expenses so you can build investment capital.`
+      };
     }
+
+    // SCENARIO 3: Surplus (Extra Money)
+    // Priority A: Debt Snowball Method
+    const activeDebts = liabilities.filter(l => Number(l.amount) > 0).sort((a, b) => Number(a.amount) - Number(b.amount));
+    if (activeDebts.length > 0) {
+      const targetDebt = activeDebts[0];
+      const minPayment = Number(targetDebt.paymentAmount) || 0;
+      const currentMonths = minPayment > 0 ? Math.ceil(targetDebt.amount / minPayment) : 0;
+      const newPayment = minPayment + surplus;
+      const newMonths = Math.ceil(targetDebt.amount / newPayment);
+      const savedMonths = currentMonths > 0 ? currentMonths - newMonths : 0;
+
+      if (savedMonths > 0) {
+        return {
+          icon: '💡', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)',
+          title: isEs ? 'Movimiento Inteligente' : 'Smart Move',
+          text: isEs
+            ? `Tiene $${surplus.toLocaleString()} extra. Si lo destina a "${targetDebt.name}", liquidará esa deuda ${savedMonths} meses más rápido.`
+            : `You have $${surplus.toLocaleString()} extra. If you put that toward "${targetDebt.name}", you will be completely debt-free of it ${savedMonths} months faster.`
+        };
+      } else {
+        return {
+          icon: '💡', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)',
+          title: isEs ? 'Movimiento Inteligente' : 'Smart Move',
+          text: isEs
+            ? `¡Use su excedente de $${surplus.toLocaleString()} para liquidar "${targetDebt.name}" hoy mismo!`
+            : `Use your $${surplus.toLocaleString()} surplus to completely pay off "${targetDebt.name}" today!`
+        };
+      }
+    }
+
+    // Priority B: Fund Vision Board Dreams
+    const activeVision = visionCards.find(c => Number(c.currentAmount || 0) < Number(c.targetAmount || 1));
+    if (activeVision) {
+      const remaining = Number(activeVision.targetAmount) - Number(activeVision.currentAmount || 0);
+      const months = Math.ceil(remaining / surplus);
+      return {
+        icon: '🌟', color: 'var(--primary-color)', bg: 'rgba(212, 175, 55, 0.1)',
+        title: isEs ? 'Objetivo a la Vista' : 'Vision Target',
+        text: isEs
+          ? `¡Siga ahorrando sus $${surplus.toLocaleString()} extra! A este ritmo, financiará completamente su "${activeVision.title}" en solo ${months} mes(es).`
+          : `Keep saving your $${surplus.toLocaleString()} surplus! At this pace, you will fully fund "${activeVision.title}" in just ${months} month(s).`
+      };
+    }
+
+    // Priority C: Wealth Building
+    return {
+      icon: '👑', color: 'var(--primary-color)', bg: 'rgba(212, 175, 55, 0.1)',
+      title: isEs ? 'Creación de Riqueza' : 'Wealth Building',
+      text: isEs
+        ? `¡Excelente! Tiene $${surplus.toLocaleString()} extra y cero deudas. Es el momento perfecto para comprar un activo que genere flujo de caja pasivo.`
+        : `Excellent! You have $${surplus.toLocaleString()} extra and zero active debts. This is the perfect time to buy a cash-flowing asset.`
+    };
+  };
+
+  const smartMove = generateSmartMove();
+
+  // ============================================================================
+  // FREEDOM DATE PROJECTION ENGINE (PRO)
+  // ============================================================================
+  const calculateFreedomDate = () => {
+    if (gaugeValue >= 100) return { isAchieved: true };
     if (cashFlow <= 0) {
       return { isPossible: false, message: isEs ? 'Se requiere flujo de caja positivo para proyectar la fecha.' : 'Positive cash flow required to project date.' };
     }
 
-    // Conservative model: Reinvesting 60% of monthly surplus into 8% annual yield assets (~0.67% monthly yield)
     const monthlyDeficit = totalExpense - passiveIncome;
     const monthlyYieldAddition = (cashFlow * 0.6) * (0.08 / 12);
     
@@ -125,7 +223,17 @@ export function Dashboard({
               : (isEs ? 'Excelente disciplina de gastos.' : 'Excellent spending discipline.')}
           </p>
         </div>
+      </div>
 
+      {/* THE SMART MOVES ALGORITHMIC CFO CARD */}
+      <div style={{ background: smartMove.bg, border: `1px solid ${smartMove.color}`, padding: '20px', borderRadius: '16px', display: 'flex', gap: '15px', alignItems: 'center' }}>
+        <div style={{ fontSize: '2.5rem' }}>{smartMove.icon}</div>
+        <div>
+          <h3 style={{ margin: '0 0 5px 0', color: smartMove.color, fontSize: '1.1rem' }}>{smartMove.title}</h3>
+          <p style={{ margin: 0, color: 'var(--text-color)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+            {smartMove.text}
+          </p>
+        </div>
       </div>
 
       {/* STRATEGIC FREEDOM DATE COUNTDOWN CARD (PRO ENGINE) */}
@@ -189,18 +297,6 @@ export function Dashboard({
         )}
       </div>
 
-      {/* Rich Dad Philosophy Banner */}
-      <div style={{ background: 'rgba(212, 175, 55, 0.05)', border: '1px solid var(--primary-color)', padding: '25px', borderRadius: '16px' }}>
-        <h3 style={{ color: 'var(--primary-color)', margin: '0 0 10px 0' }}>
-          {isEs ? '💡 Regla de Oro Rich Dad' : '💡 Rich Dad Golden Rule'}
-        </h3>
-        <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: '1.6', color: 'var(--text-color)' }}>
-          {isEs 
-            ? '"Los ricos compran activos. Los pobres solo tienen gastos. La clase media compra pasivos que piensan que son activos." — Robert Kiyosaki. Utilice este panel para enfocar su capital en la columna de activos.'
-            : '"The rich buy assets. The poor only have expenses. The middle class buy liabilities that they think are assets." — Robert Kiyosaki. Use this dashboard to focus your capital on the asset column.'}
-        </p>
-      </div>
-
       {/* TASTEFUL NATIVE AD FOR FREE TIER (Unmounts on Pro) */}
       {!isPro && (
         <div style={{ marginTop: '10px' }}>
@@ -208,7 +304,7 @@ export function Dashboard({
         </div>
       )}
 
-      {/* Upgrade Modal for Pro Teasers */}
+      {/* Upgrade Modal */}
       {showUpgradeModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, padding: '20px' }}>
           <div style={{ background: 'var(--card-bg)', padding: '30px', borderRadius: '16px', maxWidth: '480px', width: '100%', border: '2px solid var(--primary-color)', textAlign: 'center' }}>
@@ -218,8 +314,8 @@ export function Dashboard({
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '20px' }}>
               {isEs 
-                ? 'Desbloquee la proyección de Fecha de Libertad, Asistente AI personalizado, Tablero de Visión ilimitado y una experiencia 100% libre de anuncios.'
-                : 'Unlock your exact Freedom Date projection, personal AI CFO Assistant, unlimited Vision Board goals, and a 100% ad-free experience.'}
+                ? 'Desbloquee la proyección de Fecha de Libertad, notificaciones push automáticas, Tablero de Visión ilimitado y una experiencia libre de anuncios.'
+                : 'Unlock your exact Freedom Date projection, background push notifications, unlimited Vision Board goals, and a 100% ad-free experience.'}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <a 

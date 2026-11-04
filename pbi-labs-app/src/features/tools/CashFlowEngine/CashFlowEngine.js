@@ -7,7 +7,6 @@ import { ActionCenter } from './components/ActionCenter';
 import { VisionBoard } from './components/VisionBoard';
 import { LifeList } from './components/LifeList';
 import { CommandModal } from './components/CommandModal';
-import { AiAssistant } from './components/AiAssistant';
 import AdSlot from '../../../components/ads/AdSlot';
 import usePaymentReminders from '../../../hooks/usePaymentReminders';
 import { useReminderPrefsState } from '../../../components/reminders/ReminderSettings';
@@ -23,7 +22,6 @@ export function CashFlowEngine() {
   // Navigation tabs: 'dashboard' | 'statement' | 'actions' | 'vision' | 'lifelist'
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isAiOpen, setIsAiOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [isCloudSynced, setIsCloudSynced] = useState(false);
 
@@ -219,7 +217,8 @@ export function CashFlowEngine() {
   };
 
   const navButtonStyle = (tabName) => ({
-    padding: '10px 16px',
+    flex: '1 1 auto', // Allows buttons to grow and shrink smoothly
+    padding: '12px 16px',
     borderRadius: '8px',
     border: 'none',
     background: activeTab === tabName ? 'var(--primary-color)' : 'transparent',
@@ -228,7 +227,8 @@ export function CashFlowEngine() {
     cursor: 'pointer',
     whiteSpace: 'nowrap',
     fontSize: '0.9rem',
-    transition: 'all 0.2s ease'
+    transition: 'all 0.2s ease',
+    textAlign: 'center'
   });
 
   return (
@@ -263,8 +263,8 @@ export function CashFlowEngine() {
         <AdSlot slot={process.env.REACT_APP_ADSENSE_SLOT_BANNER} />
       )}
 
-      {/* Sub-Navigation Bar for Tools (Scrollable on mobile) */}
-      <div style={{ display: 'flex', gap: '8px', background: 'var(--card-bg)', padding: '8px', borderRadius: '12px', border: '1px solid var(--border-color)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      {/* UPGRADED NAVIGATION BAR: Flex Wrap prevents mobile scrolling & hiding */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', background: 'var(--card-bg)', padding: '8px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
         <button onClick={() => setActiveTab('dashboard')} style={navButtonStyle('dashboard')}>
           {isEs ? '📊 Panel' : '📊 Dashboard'}
         </button>
@@ -272,13 +272,13 @@ export function CashFlowEngine() {
           {isEs ? '📑 Estado' : '📑 Statement'}
         </button>
         <button onClick={() => setActiveTab('actions')} style={navButtonStyle('actions')}>
-          {isEs ? '⚡ Acción' : '⚡ Action Center'}
+          {isEs ? '⚡ Acción' : '⚡ Action'}
         </button>
         <button onClick={() => setActiveTab('vision')} style={navButtonStyle('vision')}>
-          {isEs ? '🌟 Visión SMART' : '🌟 Vision Board'}
+          {isEs ? '🌟 Visión' : '🌟 Vision'}
         </button>
         <button onClick={() => setActiveTab('lifelist')} style={navButtonStyle('lifelist')}>
-          {isEs ? '📜 100 Sueños' : '📜 100 Life List'}
+          {isEs ? '📜 100 Sueños' : '📜 100 Dreams'}
         </button>
       </div>
 
@@ -355,44 +355,6 @@ export function CashFlowEngine() {
           showToast={showToast}
         />
       )}
-
-      {/* Floating AI CFO Launcher Beacon */}
-      <button 
-        onClick={() => setIsAiOpen(true)}
-        style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          background: 'linear-gradient(135deg, #d4af37 0%, #b48c26 100%)',
-          color: '#000',
-          border: 'none',
-          padding: '14px 22px',
-          borderRadius: '30px',
-          fontWeight: 'bold',
-          cursor: 'pointer',
-          boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontSize: '0.95rem'
-        }}>
-        <span>🤖</span> {isEs ? 'Mi Asesor CFO' : 'AI CFO Assistant'}
-      </button>
-
-      {/* The Personal AI CFO Assistant Modal */}
-      <AiAssistant 
-        isOpen={isAiOpen}
-        onClose={() => setIsAiOpen(false)}
-        incomes={incomes}
-        expenses={expenses}
-        assets={assets}
-        liabilities={liabilities}
-        cashFlow={cashFlow}
-        gaugeValue={gaugeValue}
-        visionCards={visionCards}
-        lifeList={lifeList}
-      />
 
     </div>
   );

@@ -7,21 +7,24 @@ import { ActionCenter } from './components/ActionCenter';
 import { VisionBoard } from './components/VisionBoard';
 import { LifeList } from './components/LifeList';
 import { CommandModal } from './components/CommandModal';
+import { AiAssistant } from './components/AiAssistant'; // Keep if you added it back, or remove if you deleted it
 import AdSlot from '../../../components/ads/AdSlot';
 import usePaymentReminders from '../../../hooks/usePaymentReminders';
 import { useReminderPrefsState } from '../../../components/reminders/ReminderSettings';
+import { FiPieChart, FiFileText, FiZap, FiStar, FiList } from 'react-icons/fi';
 
 export function CashFlowEngine() {
   const { authSession, language } = useAppContext();
   const isEs = language === 'es';
   const isPro = authSession?.tier === 'pro';
 
-  // VERSION 2 STORAGE KEY: This forces the browser to drop the old "Spanglish" memory and load fresh!
+  // Version 2 Storage Key to drop old spanglish cache
   const storageKey = `pbi_vault_data_v2_${authSession?.email || 'default'}`;
 
   // Navigation tabs
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAiOpen, setIsAiOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [isCloudSynced, setIsCloudSynced] = useState(false);
 
@@ -30,7 +33,7 @@ export function CashFlowEngine() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // Financial States initialized with Clean, Single-Language Defaults
+  // Financial States
   const [incomes, setIncomes] = useState(() => {
     const saved = localStorage.getItem(`${storageKey}_incomes`);
     return saved ? JSON.parse(saved) : [
@@ -62,7 +65,6 @@ export function CashFlowEngine() {
     ];
   });
 
-  // Vision Board & Life List States with Clean Defaults
   const [visionCards, setVisionCards] = useState(() => {
     const saved = localStorage.getItem(`${storageKey}_vision_cards`);
     return saved ? JSON.parse(saved) : [
@@ -97,25 +99,15 @@ export function CashFlowEngine() {
   const [reminderPrefs, setReminderPrefs] = useReminderPrefsState();
   usePaymentReminders(liabilities, reminderPrefs);
 
-  // 1. CLOUD HYDRATION
+  // CLOUD HYDRATION
   useEffect(() => {
     let isMounted = true;
     const hydrateFromSupabase = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-
-        const { data, error } = await supabase
-          .from('user_vault')
-          .select('incomes, expenses, assets, liabilities, vision_board, life_list')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (error) {
-          console.warn('Cloud vault read warning:', error.message);
-          return;
-        }
-
+        const { data, error } = await supabase.from('user_vault').select('*').eq('user_id', user.id).maybeSingle();
+        if (error) return;
         if (data && isMounted) {
           if (Array.isArray(data.incomes)) setIncomes(data.incomes);
           if (Array.isArray(data.expenses)) setExpenses(data.expenses);
@@ -126,27 +118,17 @@ export function CashFlowEngine() {
           setIsCloudSynced(true);
         } else if (!data && user) {
           await supabase.from('user_vault').insert([{
-            user_id: user.id,
-            incomes,
-            expenses,
-            assets,
-            liabilities,
-            vision_board: visionCards,
-            life_list: lifeList,
-            updated_at: new Date().toISOString()
+            user_id: user.id, incomes, expenses, assets, liabilities, vision_board: visionCards, life_list: lifeList, updated_at: new Date().toISOString()
           }]);
           if (isMounted) setIsCloudSynced(true);
         }
-      } catch (err) {
-        console.warn('Cloud sync unavailable, running local mode:', err);
-      }
+      } catch (err) {}
     };
-
     hydrateFromSupabase();
     return () => { isMounted = false; };
   }, [authSession?.email]);
 
-  // 2. CLOUD & LOCAL SYNC
+  // CLOUD & LOCAL SYNC
   const isFirstRender = useRef(true);
   useEffect(() => {
     localStorage.setItem(`${storageKey}_incomes`, JSON.stringify(incomes));
@@ -160,28 +142,16 @@ export function CashFlowEngine() {
       isFirstRender.current = false;
       return;
     }
-
     const timer = setTimeout(async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-
         await supabase.from('user_vault').upsert({
-          user_id: user.id,
-          incomes,
-          expenses,
-          assets,
-          liabilities,
-          vision_board: visionCards,
-          life_list: lifeList,
-          updated_at: new Date().toISOString()
+          user_id: user.id, incomes, expenses, assets, liabilities, vision_board: visionCards, life_list: lifeList, updated_at: new Date().toISOString()
         });
         setIsCloudSynced(true);
-      } catch (err) {
-        console.warn('Cloud backup pending:', err);
-      }
+      } catch (err) {}
     }, 800);
-
     return () => clearTimeout(timer);
   }, [incomes, expenses, assets, liabilities, visionCards, lifeList, storageKey]);
 
@@ -189,34 +159,21 @@ export function CashFlowEngine() {
   const totalIncome = incomes.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
   const totalExpense = expenses.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
   const cashFlow = totalIncome - totalExpense;
-
-  const passiveIncome = incomes
-    .filter(i => i.isPassive || i.category === 'Passive')
-    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-    
+  const passiveIncome = incomes.filter(i => i.isPassive || i.category === 'Passive').reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
   const gaugeValue = totalExpense > 0 ? Math.min(Math.round((passiveIncome / totalExpense) * 100), 100) : 0;
   const gaugeColor = gaugeValue >= 100 ? '#10b981' : gaugeValue >= 50 ? '#f59e0b' : '#ef4444';
-
-  const wasteExpenses = expenses
-    .filter(e => e.isOneTime || e.category === 'Waste')
-    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+  const wasteExpenses = expenses.filter(e => e.isOneTime || e.category === 'Waste').reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
   const wastePercentage = totalExpense > 0 ? Math.round((wasteExpenses / totalExpense) * 100) : 0;
 
   const handleDelete = (type, id) => {
     if (type === 'income') setIncomes(incomes.filter(i => i.id !== id));
     if (type === 'expense') setExpenses(expenses.filter(e => e.id !== id));
-    if (type === 'asset') {
-      setAssets(assets.filter(a => a.id !== id));
-      setIncomes(incomes.filter(i => i.linkedAssetId !== id));
-    }
-    if (type === 'liability') {
-      setLiabilities(liabilities.filter(l => l.id !== id));
-      setExpenses(expenses.filter(e => e.linkedLiabilityId !== id));
-    }
+    if (type === 'asset') { setAssets(assets.filter(a => a.id !== id)); setIncomes(incomes.filter(i => i.linkedAssetId !== id)); }
+    if (type === 'liability') { setLiabilities(liabilities.filter(l => l.id !== id)); setExpenses(expenses.filter(e => e.linkedLiabilityId !== id)); }
     showToast(isEs ? 'Registro eliminado correctamente' : 'Record deleted successfully');
   };
 
-  const navButtonStyle = (tabName) => ({
+  const desktopNavStyle = (tabName) => ({
     flex: '1 1 auto',
     padding: '12px 16px',
     borderRadius: '8px',
@@ -232,17 +189,17 @@ export function CashFlowEngine() {
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1200px', margin: '0 auto', position: 'relative', padding: '20px' }}>
+    <div className="app-container" style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1200px', margin: '0 auto', position: 'relative', padding: '20px' }}>
       
       {/* Vault Session Indicator Banner */}
-      <div style={{ background: 'var(--card-bg)', padding: '12px 20px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', flexWrap: 'wrap', gap: '10px' }}>
+      <div style={{ background: 'var(--card-bg)', padding: '12px 20px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', flexWrap: 'wrap', gap: '10px', boxShadow: 'var(--shadow)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>
             {isEs ? '🛡️ Bóveda Financiera' : '🛡️ Financial Vault'}
           </span>
           {isCloudSynced && (
             <span style={{ fontSize: '0.75rem', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid #10b981', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
-              {isEs ? '☁️ Respaldo en Nube Activo' : '☁️ Cloud Safe'}
+              {isEs ? '☁️ Respaldo Activo' : '☁️ Cloud Safe'}
             </span>
           )}
         </div>
@@ -251,110 +208,88 @@ export function CashFlowEngine() {
         </span>
       </div>
 
-      {/* Toast Notification Banner */}
       {toastMessage && (
-        <div style={{ position: 'fixed', bottom: '20px', right: '20px', background: 'var(--primary-color)', color: '#000', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.3)', animation: 'fadeIn 0.3s' }}>
+        <div style={{ position: 'fixed', bottom: '100px', right: '20px', background: 'var(--primary-color)', color: '#000', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', zIndex: 10000, boxShadow: '0 4px 12px rgba(0,0,0,0.3)', animation: 'fadeIn 0.3s' }}>
           {toastMessage}
         </div>
       )}
 
-      {/* Only show AdSense banner if the user is on the Free Tier */}
-      {!isPro && (
-        <AdSlot slot={process.env.REACT_APP_ADSENSE_SLOT_BANNER} />
-      )}
+      {!isPro && <AdSlot slot={process.env.REACT_APP_ADSENSE_SLOT_BANNER} />}
 
-      {/* UPGRADED NAVIGATION BAR: Flex Wrap prevents mobile scrolling & hiding */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', background: 'var(--card-bg)', padding: '8px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-        <button onClick={() => setActiveTab('dashboard')} style={navButtonStyle('dashboard')}>
+      {/* DESKTOP NAVIGATION BAR (Hidden on Mobile) */}
+      <div className="desktop-nav" style={{ flexWrap: 'wrap', gap: '8px', background: 'var(--card-bg)', padding: '8px', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow)' }}>
+        <button onClick={() => setActiveTab('dashboard')} style={desktopNavStyle('dashboard')}>
           {isEs ? '📊 Panel' : '📊 Dashboard'}
         </button>
-        <button onClick={() => setActiveTab('statement')} style={navButtonStyle('statement')}>
+        <button onClick={() => setActiveTab('statement')} style={desktopNavStyle('statement')}>
           {isEs ? '📑 Estado' : '📑 Statement'}
         </button>
-        <button onClick={() => setActiveTab('actions')} style={navButtonStyle('actions')}>
+        <button onClick={() => setActiveTab('actions')} style={desktopNavStyle('actions')}>
           {isEs ? '⚡ Acción' : '⚡ Action'}
         </button>
-        <button onClick={() => setActiveTab('vision')} style={navButtonStyle('vision')}>
+        <button onClick={() => setActiveTab('vision')} style={desktopNavStyle('vision')}>
           {isEs ? '🌟 Visión' : '🌟 Vision'}
         </button>
-        <button onClick={() => setActiveTab('lifelist')} style={navButtonStyle('lifelist')}>
+        <button onClick={() => setActiveTab('lifelist')} style={desktopNavStyle('lifelist')}>
           {isEs ? '📜 100 Sueños' : '📜 100 Dreams'}
+        </button>
+      </div>
+
+      {/* MOBILE BOTTOM NAVIGATION BAR (Hidden on Desktop) */}
+      <div className="mobile-bottom-bar">
+        <button className={`bottom-nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+          <FiPieChart className="bottom-nav-icon" />
+          <span>{isEs ? 'Panel' : 'Dashboard'}</span>
+        </button>
+        <button className={`bottom-nav-btn ${activeTab === 'statement' ? 'active' : ''}`} onClick={() => setActiveTab('statement')}>
+          <FiFileText className="bottom-nav-icon" />
+          <span>{isEs ? 'Estado' : 'Statement'}</span>
+        </button>
+        <button className={`bottom-nav-btn ${activeTab === 'actions' ? 'active' : ''}`} onClick={() => setActiveTab('actions')}>
+          <FiZap className="bottom-nav-icon" />
+          <span>{isEs ? 'Acción' : 'Action'}</span>
+        </button>
+        <button className={`bottom-nav-btn ${activeTab === 'vision' ? 'active' : ''}`} onClick={() => setActiveTab('vision')}>
+          <FiStar className="bottom-nav-icon" />
+          <span>{isEs ? 'Visión' : 'Vision'}</span>
+        </button>
+        <button className={`bottom-nav-btn ${activeTab === 'lifelist' ? 'active' : ''}`} onClick={() => setActiveTab('lifelist')}>
+          <FiList className="bottom-nav-icon" />
+          <span>{isEs ? 'Sueños' : 'Dreams'}</span>
         </button>
       </div>
 
       {/* Active Tab View Rendering */}
       {activeTab === 'dashboard' && (
-        <Dashboard 
-          incomes={incomes}
-          expenses={expenses}
-          assets={assets}
-          liabilities={liabilities}
-          cashFlow={cashFlow}
-          gaugeValue={gaugeValue}
-          gaugeColor={gaugeColor}
-          wastePercentage={wastePercentage}
-          visionCards={visionCards}
-        />
+        <Dashboard incomes={incomes} expenses={expenses} assets={assets} liabilities={liabilities} cashFlow={cashFlow} gaugeValue={gaugeValue} gaugeColor={gaugeColor} wastePercentage={wastePercentage} visionCards={visionCards} />
       )}
-
       {activeTab === 'statement' && (
-        <Statement 
-          incomes={incomes}
-          expenses={expenses}
-          assets={assets}
-          liabilities={liabilities}
-          handleDelete={handleDelete}
-          setIsModalOpen={setIsModalOpen}
-        />
+        <Statement incomes={incomes} expenses={expenses} assets={assets} liabilities={liabilities} handleDelete={handleDelete} setIsModalOpen={setIsModalOpen} />
       )}
-
       {activeTab === 'actions' && (
-        <ActionCenter 
-          assets={assets}
-          setAssets={setAssets}
-          liabilities={liabilities}
-          setLiabilities={setLiabilities}
-          expenses={expenses}
-          setExpenses={setExpenses}
-          incomes={incomes}
-          setIncomes={setIncomes}
-          showToast={showToast}
-          reminderPrefs={reminderPrefs}
-          setReminderPrefs={setReminderPrefs}
-        />
+        <ActionCenter assets={assets} setAssets={setAssets} liabilities={liabilities} setLiabilities={setLiabilities} expenses={expenses} setExpenses={setExpenses} incomes={incomes} setIncomes={setIncomes} showToast={showToast} reminderPrefs={reminderPrefs} setReminderPrefs={setReminderPrefs} />
       )}
-
       {activeTab === 'vision' && (
-        <VisionBoard 
-          visionCards={visionCards}
-          setVisionCards={setVisionCards}
-          cashFlow={cashFlow}
-          showToast={showToast}
-        />
+        <VisionBoard visionCards={visionCards} setVisionCards={setVisionCards} cashFlow={cashFlow} showToast={showToast} />
       )}
-
       {activeTab === 'lifelist' && (
-        <LifeList 
-          lifeList={lifeList}
-          setLifeList={setLifeList}
-          showToast={showToast}
-        />
+        <LifeList lifeList={lifeList} setLifeList={setLifeList} showToast={showToast} />
       )}
 
-      {/* Command Modal for Adding Entries */}
       {isModalOpen && (
-        <CommandModal 
-          onClose={() => setIsModalOpen(false)}
-          incomes={incomes}
-          setIncomes={setIncomes}
-          expenses={expenses}
-          setExpenses={setExpenses}
-          assets={assets}
-          setAssets={setAssets}
-          liabilities={liabilities}
-          setLiabilities={setLiabilities}
-          showToast={showToast}
-        />
+        <CommandModal onClose={() => setIsModalOpen(false)} incomes={incomes} setIncomes={setIncomes} expenses={expenses} setExpenses={setExpenses} assets={assets} setAssets={setAssets} liabilities={liabilities} setLiabilities={setLiabilities} showToast={showToast} />
+      )}
+
+      {/* Floating AI CFO Launcher Beacon (Requires AiAssistant.js to exist) */}
+      {AiAssistant && (
+        <>
+          <button onClick={() => setIsAiOpen(true)} className="ai-fab">
+            <span>🤖</span> <span className="ai-fab-text">{isEs ? 'Mi CFO' : 'AI CFO'}</span>
+          </button>
+          <AiAssistant 
+            isOpen={isAiOpen} onClose={() => setIsAiOpen(false)} incomes={incomes} expenses={expenses} assets={assets} liabilities={liabilities} cashFlow={cashFlow} gaugeValue={gaugeValue} visionCards={visionCards} lifeList={lifeList} 
+          />
+        </>
       )}
 
     </div>

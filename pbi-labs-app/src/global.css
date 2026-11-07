@@ -11,28 +11,30 @@
    DARK THEME (Executive Midnight Obsidian)
    ============================================================================== */
 [data-theme='dark'] {
-  --bg-color: #0b0f19;        /* Deep midnight */
-  --card-bg: #151d30;         /* Refined card slate */
+  --bg-color: #0b0f19;        
+  --card-bg: #151d30;         
   --card-hover: #1c2742;
-  --text-color: #f8fafc;      /* Crisp platinum white */
-  --text-muted: #94a3b8;      /* Soft silver */
-  --border-color: #24304f;    /* Subtle navy border */
+  --text-color: #f8fafc;      
+  --text-muted: #94a3b8;      
+  --border-color: #24304f;    
   --primary-color: #d4af37;
   --input-bg: #0b0f19;
+  --shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
 /* ==============================================================================
-   LIGHT THEME (Warm Platinum & Cream - ZERO Eye Strain)
+   LIGHT THEME (Warm Platinum - ZERO Eye Strain, High Depth)
    ============================================================================== */
 [data-theme='light'] {
-  --bg-color: #f1f4f9;        /* Soft platinum - never blinding white */
+  --bg-color: #f1f5f9;        /* Soft platinum - never blinding white */
   --card-bg: #ffffff;         /* Clean white cards */
-  --card-hover: #e8ecf4;
+  --card-hover: #f8fafc;
   --text-color: #0f172a;      /* Deep legible navy-charcoal */
   --text-muted: #64748b;      /* High-contrast slate */
-  --border-color: #d8e1ed;    /* Gentle card borders */
-  --primary-color: #b48c26;   /* Burnished rich gold with dark contrast */
+  --border-color: #e2e8f0;    /* Gentle card borders */
+  --primary-color: #b48c26;   /* Burnished rich gold for light mode legibility */
   --input-bg: #f8fafc;
+  --shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
 }
 
 /* ==============================================================================
@@ -49,6 +51,7 @@
   --text-muted: #71717a;
   --border-color: #d4d4d8;
   --input-bg: #fafafa;
+  --shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
 * {
@@ -78,6 +81,96 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==============================================================================
+   RESPONSIVE MOBILE UX (Native App Feel)
+   ============================================================================== */
+
+/* The Floating Action Button for the AI CFO */
+.ai-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+  color: #000;
+  border: none;
+  padding: 14px 22px;
+  border-radius: 30px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+/* Bottom Navigation Bar (Hidden on Desktop) */
+.mobile-bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--card-bg);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-around;
+  padding: 12px 10px 25px 10px; /* Extra bottom padding for iPhone Safe Area */
+  z-index: 5000;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+}
+
+.bottom-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bottom-nav-btn.active {
+  color: var(--primary-color);
+}
+
+.bottom-nav-icon {
+  font-size: 1.4rem;
+}
+
+/* Desktop Styles */
+@media (min-width: 768px) {
+  .mobile-bottom-bar { 
+    display: none !important; 
+  }
+  .desktop-nav { 
+    display: flex; 
+  }
+  .app-container { 
+    padding-bottom: 20px; 
+  }
+}
+
+/* Mobile Styles */
+@media (max-width: 767px) {
+  .desktop-nav { 
+    display: none !important; 
+  }
+  .app-container { 
+    padding-bottom: 110px !important; /* Make room so bottom content isn't hidden by nav */
+  }
+  .ai-fab {
+    bottom: 95px !important; /* Push the AI button above the mobile menu */
+    right: 16px !important;
+    padding: 12px 16px !important;
+  }
 }

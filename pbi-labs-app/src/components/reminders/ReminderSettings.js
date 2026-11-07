@@ -1,12 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { loadReminderPrefs, playTone, reminderCopy, saveReminderPrefs } from '../../services/reminderTone';
+import { FiBell, FiBellOff, FiAlertCircle } from 'react-icons/fi';
+
+export function useReminderPrefsState() {
+  const [prefs, setPrefs] = useState(() => loadReminderPrefs());
+  return [prefs, setPrefs];
+}
 
 export default function ReminderSettings({ prefs, onChange }) {
   const { language } = useAppContext();
   const isEs = language === 'es';
-  const [status, setStatus] = useState('');
-  const pushReady = Boolean(process.env.REACT_APP_VAPID_PUBLIC_KEY);
+  const [permissionStatus, setPermissionStatus] = useState('default');
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setPermissionStatus(Notification.permission);
+    }
+  }, []);
 
   const update = (patch) => {
     const next = { ...prefs, ...patch };
@@ -14,108 +25,162 @@ export default function ReminderSettings({ prefs, onChange }) {
     onChange(next);
   };
 
-  const enable = async (checked) => {
-    if (!checked) {
+  const requestPermission = async () => {
+    if (!('Notification' in window)) {
+      alert(isEs ? 'Su navegador no soporta notificaciones push.' : 'Your browser does not support push notifications.');
+      return;
+    }
+    
+    try {
+      const status = await Notification.requestPermission();
+      setPermissionStatus(status);
+      if (status === 'granted') {
+        update({ enabled: true });
+      } else {
+        update({ enabled: false });
+      }
+    } catch (error) {
+      console.error('Permission request failed', error);
+    }
+  };
+
+  const handleToggle = () => {
+    if (prefs.enabled) {
       update({ enabled: false });
-      setStatus(isEs ? 'Recordatorios apagados.' : 'Reminders are off.');
-      return;
+    } else {
+      if (permissionStatus === 'granted') {
+        update({ enabled: true });
+      } else {
+        requestPermission();
+      }
     }
-    if (typeof Notification === 'undefined') {
-      setStatus(isEs ? 'Este navegador no acepta notificaciones.' : 'This browser does not support notifications.');
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      update({ enabled: false });
-      setStatus(isEs ? 'Permiso de notificaciones denegado.' : 'Notification permission was denied.');
-      return;
-    }
-    update({ enabled: true });
-    setStatus(isEs ? 'Recordatorios activados.' : 'Reminders are on.');
   };
 
   const sendTest = () => {
     const sampleDate = new Date();
     sampleDate.setDate(sampleDate.getDate() + Number(prefs.leadDays || 0));
-    const nextDate = sampleDate.toISOString().slice(0, 10);
+    
+    // Format to MM-DD-YYYY
+    const mm = String(sampleDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(sampleDate.getDate()).padStart(2, '0');
+    const yyyy = sampleDate.getFullYear();
+    const nextDate = `${mm}-${dd}-${yyyy}`;
+    
     const body = reminderCopy({
       tone: prefs.tone,
       language,
-      name: isEs ? 'Pago de ejemplo' : 'Sample payment',
-      amount: 120,
+      name: isEs ? 'Préstamo de Auto (Ejemplo)' : 'Car Loan (Sample)',
+      amount: 350,
       nextDate,
       days: Number(prefs.leadDays || 0)
     });
+    
     if (prefs.sound !== false) playTone(prefs.tone);
+    
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      new Notification(isEs ? 'Pago próximo' : 'Payment coming up', { body, icon: '/logo192.png' });
+      new Notification(isEs ? 'P.B.I. Labs: Pago Próximo' : 'P.B.I. Labs: Payment Due', { body, icon: '/logo192.png' });
     }
-    setStatus(body);
   };
 
-  const label = { display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6 };
-  const field = { width: '100%', padding: '10px', background: 'var(--bg-color)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: 8 };
-
   return (
-    <div style={{ background: 'var(--card-bg)', padding: 20, borderRadius: 12, border: '1px solid var(--border-color)', marginBottom: 20 }}>
-      <h3 style={{ marginTop: 0, color: 'var(--primary-color)' }}>
-        {isEs ? 'Recordatorios de pago' : 'Payment reminders'}
-      </h3>
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-        {isEs
-          ? 'Elige el tono del mensaje. Con la app abierta suena en este dispositivo. Con las claves push configuradas, también llega cuando la app está cerrada.'
-          : 'Pick the tone of the message. While this app is open, this device chimes. Once push keys are configured, the same reminder also arrives when the app is closed.'}
-      </p>
-
-      <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <input type="checkbox" checked={prefs.enabled} onChange={(event) => enable(event.target.checked)} />
-        <span>{isEs ? 'Avisarme de los pagos próximos' : 'Remind me about upcoming payments'}</span>
-      </label>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+    <div style={{ background: 'var(--card-bg)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-color)', marginBottom: '25px' }}>
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
         <div>
-          <span style={label}>{isEs ? 'Tono' : 'Tone'}</span>
-          <select value={prefs.tone} onChange={(event) => update({ tone: event.target.value })} style={field}>
-            <option value="gentle">{isEs ? 'Amable' : 'Gentle'}</option>
-            <option value="direct">{isEs ? 'Directo' : 'Direct'}</option>
-            <option value="urgent">{isEs ? 'Urgente' : 'Urgent'}</option>
-          </select>
+          <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-color)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem' }}>
+            {prefs.enabled ? <FiBell style={{ color: '#10b981' }}/> : <FiBellOff style={{ color: 'var(--text-muted)' }}/>}
+            {isEs ? 'Notificaciones Push Inteligentes' : 'Smart Push Notifications'}
+          </h3>
+          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '480px', lineHeight: '1.5' }}>
+            {isEs 
+              ? 'Reciba alertas en el fondo de su teléfono cuando una deuda esté por vencer, incluso si la aplicación está cerrada.' 
+              : 'Receive background alerts directly to your device when a bill is due, even if the vault is closed.'}
+          </p>
         </div>
-        <div>
-          <span style={label}>{isEs ? 'Días de anticipación' : 'Days ahead'}</span>
-          <input
-            type="number"
-            min="0"
-            max="14"
-            value={prefs.leadDays}
-            onChange={(event) => update({ leadDays: Math.max(0, Math.min(14, Number(event.target.value) || 0)) })}
-            style={field}
-          />
-        </div>
+
+        <button 
+          onClick={handleToggle}
+          style={{
+            padding: '12px 24px',
+            background: prefs.enabled ? 'rgba(16, 185, 129, 0.1)' : 'var(--primary-color)',
+            color: prefs.enabled ? '#10b981' : '#000',
+            border: prefs.enabled ? '1px solid #10b981' : 'none',
+            borderRadius: '8px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            fontSize: '0.95rem'
+          }}>
+          {prefs.enabled ? (isEs ? 'Desactivar Alertas' : 'Disable Alerts') : (isEs ? 'Activar Alertas' : 'Enable Alerts')}
+        </button>
       </div>
 
-      <label style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 0' }}>
-        <input type="checkbox" checked={prefs.sound !== false} onChange={(event) => update({ sound: event.target.checked })} />
-        <span>{isEs ? 'Reproducir un sonido con el tono elegido' : 'Play a sound that matches the tone'}</span>
-      </label>
-
-      <button type="button" onClick={sendTest} style={{ padding: '10px 16px', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer' }}>
-        {isEs ? 'Probar recordatorio' : 'Test reminder'}
-      </button>
-
-      {!pushReady && (
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 0 }}>
-          {isEs
-            ? 'Los avisos con la app cerrada se encienden cuando agregues REACT_APP_VAPID_PUBLIC_KEY en Netlify.'
-            : 'Closed-app alerts turn on after you add REACT_APP_VAPID_PUBLIC_KEY in Netlify.'}
-        </p>
+      {/* SMART PERMISSION HANDLING: Tells user exactly how to fix blocked notifications */}
+      {permissionStatus === 'denied' && (
+        <div style={{ marginTop: '20px', padding: '16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '10px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <FiAlertCircle style={{ color: '#ef4444', fontSize: '1.5rem', marginTop: '2px', flexShrink: 0 }} />
+          <div style={{ fontSize: '0.9rem', color: '#ef4444', lineHeight: '1.5' }}>
+            <strong style={{ display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
+              {isEs ? 'Permiso Denegado por el Navegador' : 'Permission Denied by Browser'}
+            </strong>
+            {isEs 
+              ? 'Su navegador bloqueó las notificaciones. Haga clic en el candado 🔒 junto a la barra de direcciones web arriba, cambie Notificaciones a "Permitir", y recargue la página.' 
+              : 'Your browser blocked notifications. Click the lock icon 🔒 next to the web address bar above, set Notifications to "Allow", and reload the page.'}
+          </div>
+        </div>
       )}
-      {status && <p style={{ color: 'var(--text-color)', fontSize: '0.85rem' }}>{status}</p>}
+      
+      {prefs.enabled && (
+         <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '25px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 200px' }}>
+               <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                 {isEs ? 'Tono del Mensaje' : 'Message Tone'}
+               </label>
+               <select 
+                 value={prefs.tone} 
+                 onChange={e => update({ tone: e.target.value })}
+                 style={{ width: '100%', padding: '12px 14px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', fontSize: '0.95rem', cursor: 'pointer', outline: 'none' }}>
+                 <option value="gentle">{isEs ? 'Amable (Recordatorio suave)' : 'Gentle (Soft reminder)'}</option>
+                 <option value="direct">{isEs ? 'Directo (Estándar)' : 'Direct (Standard)'}</option>
+                 <option value="urgent">{isEs ? 'Urgente (Alta prioridad)' : 'Urgent (High priority)'}</option>
+               </select>
+            </div>
+            <div style={{ flex: '1 1 200px' }}>
+               <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                 {isEs ? 'Aviso Previo' : 'Lead Time'}
+               </label>
+               <select 
+                 value={prefs.leadDays} 
+                 onChange={e => update({ leadDays: Number(e.target.value) })}
+                 style={{ width: '100%', padding: '12px 14px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', fontSize: '0.95rem', cursor: 'pointer', outline: 'none' }}>
+                 <option value={1}>{isEs ? '1 Día antes' : '1 Day before'}</option>
+                 <option value={2}>{isEs ? '2 Días antes' : '2 Days before'}</option>
+                 <option value={3}>{isEs ? '3 Días antes' : '3 Days before'}</option>
+               </select>
+            </div>
+
+            <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={prefs.sound !== false} 
+                  onChange={e => update({ sound: e.target.checked })} 
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-color)' }}>
+                  {isEs ? 'Reproducir sonido al notificar' : 'Play audio chime on notification'}
+                </span>
+              </label>
+
+              <button 
+                type="button" 
+                onClick={sendTest} 
+                style={{ padding: '10px 18px', background: 'var(--bg-color)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+                {isEs ? 'Probar Alerta' : 'Test Alert'}
+              </button>
+            </div>
+         </div>
+      )}
     </div>
   );
-}
-
-export function useReminderPrefsState() {
-  const [prefs, setPrefs] = useState(() => loadReminderPrefs());
-  return [prefs, setPrefs];
 }

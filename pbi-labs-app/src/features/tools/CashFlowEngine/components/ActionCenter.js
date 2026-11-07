@@ -3,7 +3,7 @@ import { useAppContext } from '../../../../context/AppContext';
 import { recordPayment, recordYield } from '../ledger';
 import ReminderSettings from '../../../../components/reminders/ReminderSettings';
 
-// Executive Micro-Reward Audio Chime
+// Executive Micro-Reward Audio Chime (VOLUME BOOSTED)
 function playSuccessChime(type = 'payment') {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -14,23 +14,27 @@ function playSuccessChime(type = 'payment') {
 
     osc.type = 'sine';
     if (type === 'payoff') {
-      // Golden celebratory chime for 100% paid off debt
       osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
       osc.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.15); // E5
       osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.3); // G5
       osc.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.45); // C6
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      
+      // Volume increased to 80%
+      gain.gain.setValueAtTime(0.8, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.6);
     } else {
-      // Crisp confirmation click chime
       osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
       osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      
+      // Volume increased to 80%
+      gain.gain.setValueAtTime(0.8, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
@@ -57,22 +61,27 @@ export const ActionCenter = ({
   const { language } = useAppContext();
   const isEs = language === 'es';
 
-  // TIME ENGINE: Safely pushes the date forward
   const advanceDate = (dateStr, freq) => {
     if (!dateStr) return '';
-    const [year, month, day] = dateStr.split('-');
+    const [month, day, year] = dateStr.split('-');
     const d = new Date(year, month - 1, day);
     if (freq === 'weekly') d.setDate(d.getDate() + 7);
     else d.setMonth(d.getMonth() + 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${mm}-${dd}-${yyyy}`;
   };
 
-  // 3-STAGE REMINDER CADENCE: Calculate days relative to today
   const getDueStatus = (dateStr) => {
     if (!dateStr) return { stage: 'future', text: isEs ? 'Sin fecha' : 'No date', color: '#94a3b8', priority: 4 };
 
     const todayStr = new Date().toISOString().slice(0, 10);
-    const dueTime = Date.parse(`${dateStr}T00:00:00Z`);
+    const [m, d, y] = dateStr.split('-');
+    if (!m || !d || !y) return { stage: 'future', text: dateStr, color: '#94a3b8', priority: 4 };
+    
+    const dueTime = Date.parse(`${y}-${m}-${d}T00:00:00Z`);
     const todayTime = Date.parse(`${todayStr}T00:00:00Z`);
 
     if (Number.isNaN(dueTime) || Number.isNaN(todayTime)) {
@@ -152,7 +161,6 @@ export const ActionCenter = ({
 
   const activeAssets = assets.filter(a => Number(a.yieldAmount) > 0);
   
-  // Sort liabilities by urgency (Overdue -> Due Today -> Upcoming -> Future)
   const sortedLiabilities = [...liabilities]
     .filter(l => l.requiresPayments === true)
     .sort((a, b) => {

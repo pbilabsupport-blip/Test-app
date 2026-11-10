@@ -43,6 +43,10 @@ export const AppProvider = ({ children }) => {
   const [authSession, setAuthSession] = useState(() => readStoredSession());
   const [loading, setLoading] = useState(() => readStoredSession()?.tier === 'pro');
   const [authNotice, setAuthNotice] = useState(null);
+  
+  // STRESS PATH 1 FIX: Password Recovery State
+  const [recoveryMode, setRecoveryMode] = useState(false);
+
   const clearAuthNotice = useCallback(() => setAuthNotice(null), []);
 
   useEffect(() => {
@@ -54,6 +58,20 @@ export const AppProvider = ({ children }) => {
     localStorage.setItem('pbi_theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // STRESS PATH 1 FIX: Listen for Supabase password recovery links
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecoveryMode(true);
+      }
+    });
+    return () => {
+      if (authListener && authListener.subscription) {
+        authListener.subscription.unsubscribe();
+      }
+    };
+  }, []);
 
   const clearLocalSession = useCallback(() => {
     setAuthSession(null);
@@ -111,7 +129,7 @@ export const AppProvider = ({ children }) => {
     };
   }, [authSession?.tier, authSession?.email, clearLocalSession]);
 
-  // FREE SIGN UP: Does not trigger full-screen unmount
+  // FREE SIGN UP
   const handleFreeSignUp = async (email, password) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
@@ -122,7 +140,7 @@ export const AppProvider = ({ children }) => {
     return { success: true, data };
   };
 
-  // FREE LOGIN: Does not trigger full-screen unmount
+  // FREE LOGIN
   const handleFreeLogin = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
@@ -133,7 +151,14 @@ export const AppProvider = ({ children }) => {
     return { success: true, data };
   };
 
-  // PRO ACTIVATION: Does not trigger full-screen unmount so errors display cleanly
+  // UPDATE PASSWORD (Called after clicking the reset email link)
+  const handleUpdatePassword = async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    setRecoveryMode(false);
+  };
+
+  // PRO ACTIVATION
   const handleActivate = async (key, email) => {
     setAuthNotice(null);
     const deviceId = await getFingerprint();
@@ -183,7 +208,9 @@ export const AppProvider = ({ children }) => {
       loading,
       authNotice,
       clearAuthNotice,
-      getAccessToken
+      getAccessToken,
+      recoveryMode,
+      handleUpdatePassword
     }}>
       {children}
     </AppContext.Provider>

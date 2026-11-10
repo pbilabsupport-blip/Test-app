@@ -1,40 +1,50 @@
 :root {
-  --primary-color: #d4af37; /* Luxury Rich Dad Gold */
-  --primary-hover: #b89628;
-  --success-color: #10b981;
-  --danger-color: #ef4444;
-  --warning-color: #f59e0b;
+  /* Core Brand Colors */
+  --primary-color: #d4af37; /* Classic Rich Dad Gold */
+  --primary-hover: #c49f27;
+  --success-color: #10b981; /* Calming Emerald Green */
+  --danger-color: #ef4444;  /* Alert Red */
+  --warning-color: #f59e0b; /* Amber */
+  
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* ==============================================================================
    DARK THEME (Executive Midnight Obsidian)
+   Focuses on deep, rich slates instead of hollow, straining blacks.
    ============================================================================== */
 [data-theme='dark'] {
-  --bg-color: #0b0f19;        
-  --card-bg: #151d30;         
-  --card-hover: #1c2742;
-  --text-color: #f8fafc;      
-  --text-muted: #94a3b8;      
-  --border-color: #24304f;    
-  --primary-color: #d4af37;
-  --input-bg: #0b0f19;
-  --shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  --bg-color: #090c15;             /* Deepest background */
+  --card-bg: #111827;              /* Elevated card surface */
+  --input-bg: #1f2937;             /* Recessed input fields */
+  --text-color: #f8fafc;           /* Crisp platinum text */
+  --text-muted: #94a3b8;           /* Soft silver for secondary info */
+  --border-color: #1f2937;         /* Subtle structural borders */
+  --primary-color: #d4af37;        /* Gold pops beautifully on dark */
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  --modal-overlay: rgba(0, 0, 0, 0.75);
 }
 
 /* ==============================================================================
-   LIGHT THEME (Warm Platinum - ZERO Eye Strain, High Depth)
+   LIGHT THEME (High Contrast / Anti-Glare)
+   Deepened slate background to kill the "snow" effect. Cards pop clearly.
    ============================================================================== */
 [data-theme='light'] {
-  --bg-color: #f1f5f9;        /* Soft platinum - never blinding white */
-  --card-bg: #ffffff;         /* Clean white cards */
-  --card-hover: #f8fafc;
-  --text-color: #0f172a;      /* Deep legible navy-charcoal */
-  --text-muted: #64748b;      /* High-contrast slate */
-  --border-color: #e2e8f0;    /* Gentle card borders */
-  --primary-color: #b48c26;   /* Burnished rich gold for light mode legibility */
-  --input-bg: #f8fafc;
-  --shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+  --bg-color: #e2e8f0;             /* Solid, calming slate gray (Kills the snow glare) */
+  --card-bg: #ffffff;              /* Crisp white only for elevated cards */
+  --input-bg: #f1f5f9;             /* Slightly muted inputs */
+  --text-color: #0f172a;           /* Deep navy-charcoal */
+  --text-muted: #475569;           /* Darker slate for easy reading */
+  --border-color: #cbd5e1;         /* Stronger border to frame the white cards */
+  --primary-color: #b48c26;        /* Deepened gold for readable light contrast */
+  --shadow-sm: 0 2px 4px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 6px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 15px 30px rgba(15, 23, 42, 0.12);
+  --modal-overlay: rgba(15, 23, 42, 0.6);
 }
 
 /* ==============================================================================
@@ -45,15 +55,21 @@
   --success-color: #3f3f46;
   --danger-color: #27272a;
   --warning-color: #71717a;
-  --bg-color: #f4f4f5;
+  --bg-color: #e4e4e7;
   --card-bg: #ffffff;
   --text-color: #18181b;
-  --text-muted: #71717a;
+  --text-muted: #52525b;
   --border-color: #d4d4d8;
-  --input-bg: #fafafa;
-  --shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  --input-bg: #f4f4f5;
+  --shadow-sm: 0 4px 15px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  --modal-overlay: rgba(0, 0, 0, 0.6);
 }
 
+/* ==============================================================================
+   GLOBAL STRUCTURAL RULES
+   ============================================================================== */
 * {
   box-sizing: border-box;
 }
@@ -63,14 +79,23 @@ body {
   padding: 0;
   background-color: var(--bg-color);
   color: var(--text-color);
-  transition: background-color 0.25s ease, color 0.25s ease;
-  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Clean Custom Scrollbars */
+/* Input Fields - Universal styling for focus and depth */
+input, select, textarea {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15) !important;
+}
+
+/* Scrollbars - Clean and minimal */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: var(--bg-color);
@@ -79,38 +104,19 @@ body {
   background: var(--border-color);
   border-radius: 4px;
 }
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
 
+/* Smooth fade-in animation for components loading in */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 /* ==============================================================================
-   RESPONSIVE MOBILE UX (Native App Feel)
+   MOBILE NAVIGATION DOCK (Native App UX)
    ============================================================================== */
-
-/* The Floating Action Button for the AI CFO */
-.ai-fab {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-  color: #000;
-  border: none;
-  padding: 14px 22px;
-  border-radius: 30px;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.95rem;
-  transition: all 0.2s ease;
-}
-
-/* Bottom Navigation Bar (Hidden on Desktop) */
 .mobile-bottom-bar {
   position: fixed;
   bottom: 0;
@@ -120,57 +126,42 @@ body {
   border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: space-around;
-  padding: 12px 10px 25px 10px; /* Extra bottom padding for iPhone Safe Area */
+  padding: 12px 10px 28px 10px; /* Safe area padding for iPhones */
   z-index: 5000;
-  box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
 }
 
 .bottom-nav-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 0.7rem;
-  font-weight: bold;
+  font-size: 0.65rem;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .bottom-nav-btn.active {
   color: var(--primary-color);
+  transform: translateY(-2px);
 }
 
 .bottom-nav-icon {
   font-size: 1.4rem;
 }
 
-/* Desktop Styles */
+/* Desktop vs Mobile Display Logic */
 @media (min-width: 768px) {
-  .mobile-bottom-bar { 
-    display: none !important; 
-  }
-  .desktop-nav { 
-    display: flex; 
-  }
-  .app-container { 
-    padding-bottom: 20px; 
-  }
+  .mobile-bottom-bar { display: none !important; }
+  .desktop-nav { display: flex; }
+  .app-container { padding-bottom: 20px; }
 }
 
-/* Mobile Styles */
 @media (max-width: 767px) {
-  .desktop-nav { 
-    display: none !important; 
-  }
-  .app-container { 
-    padding-bottom: 110px !important; /* Make room so bottom content isn't hidden by nav */
-  }
-  .ai-fab {
-    bottom: 95px !important; /* Push the AI button above the mobile menu */
-    right: 16px !important;
-    padding: 12px 16px !important;
-  }
+  .desktop-nav { display: none !important; }
+  .app-container { padding-bottom: 110px !important; } /* Push content above mobile nav */
 }

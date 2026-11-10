@@ -26,45 +26,31 @@ export function Dashboard({
     .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
 
   // ============================================================================
-  // "SMART MOVES" ALGORITHMIC CFO ENGINE
+  // "SMART MOVES" ALGORITHMIC CFO ENGINE (Simon Squibb Empathy Update)
   // ============================================================================
   const generateSmartMove = () => {
     const surplus = cashFlow;
     
-    // SCENARIO 1: Deficit (Bleeding Money)
+    // SCENARIO 1: Deficit (Bleeding Money - Simon Squibb Empathy)
     if (surplus < 0) {
       const deficit = Math.abs(surplus);
-      const waste = expenses
-        .filter(e => e.category === 'Waste' || e.isOneTime)
-        .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-        
-      if (waste >= deficit) {
-        return {
-          icon: '⚠️', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)',
-          title: isEs ? 'Alerta de Sangrado' : 'Bleeding Alert',
-          text: isEs
-            ? `Sus gastos superan sus ingresos por $${deficit.toLocaleString()}. Recorte $${deficit.toLocaleString()} de sus gastos "No Esenciales" este mes para volver a estar en verde.`
-            : `Your expenses exceed your income by $${deficit.toLocaleString()}. Cut $${deficit.toLocaleString()} from your "Non-Essential" spending this month to get back in the green.`
-        };
-      } else {
-        return {
-          icon: '🚨', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)',
-          title: isEs ? 'Déficit Crítico' : 'Critical Deficit',
-          text: isEs
-            ? `Tiene un déficit de $${deficit.toLocaleString()}. Necesita reducir gastos de vivienda/comida o encontrar una nueva fuente de ingresos urgentemente.`
-            : `You are running a $${deficit.toLocaleString()} deficit. You need to reduce essential expenses or find a new income source urgently.`
-        };
-      }
+      return {
+        icon: '💡', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)',
+        title: isEs ? 'Cerremos la brecha' : "Let's bridge the gap",
+        text: isEs
+          ? `Te faltan $${deficit.toLocaleString()} este mes. No puedes crear riqueza solo recortando gastos—necesitamos aumentar tus ingresos. ¿Qué habilidad tienes que puedas ofrecer gratis hoy para empezar a construir una base de clientes?`
+          : `You are short $${deficit.toLocaleString()} this month. You cannot budget your way to wealth—we need to raise your income. What is a skill you can offer to someone today for free to start building a client base?`
+      };
     } 
     
-    // SCENARIO 2: Breaking Even
+    // SCENARIO 2: Breaking Even (Ground Zero)
     if (surplus === 0) {
       return {
-        icon: '⚖️', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)',
-        title: isEs ? 'Punto de Equilibrio' : 'Breaking Even',
+        icon: '⚖️', color: 'var(--primary-color)', bg: 'rgba(212, 175, 55, 0.1)',
+        title: isEs ? 'Punto de Partida' : 'Ground Zero',
         text: isEs
-          ? `Está en punto de equilibrio exacto ($0). Busque recortar gastos no esenciales para generar capital de inversión.`
-          : `You are exactly breaking even ($0). Look to cut non-essential expenses so you can build investment capital.`
+          ? `Estás en punto de equilibrio exacto ($0). Este es el momento perfecto para iniciar un proyecto que genere solo $100 extra al mes para empezar a financiar tu visión.`
+          : `You are exactly breaking even ($0). This is the perfect time to find a side hustle that brings in just $100 extra a month to start funding your vision.`
       };
     }
 
@@ -81,19 +67,19 @@ export function Dashboard({
 
       if (savedMonths > 0) {
         return {
-          icon: '💡', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)',
-          title: isEs ? 'Movimiento Inteligente' : 'Smart Move',
+          icon: '🔥', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)',
+          title: isEs ? '¡Impulso!' : 'Momentum!',
           text: isEs
-            ? `Tiene $${surplus.toLocaleString()} extra. Si lo destina a "${targetDebt.name}", liquidará esa deuda ${savedMonths} meses más rápido.`
-            : `You have $${surplus.toLocaleString()} extra. If you put that toward "${targetDebt.name}", you will be completely debt-free of it ${savedMonths} months faster.`
+            ? `Tienes $${surplus.toLocaleString()} extra. Si lo aplicas a "${targetDebt.name}", liquidarás esa deuda ${savedMonths} meses más rápido. Compra de vuelta tu libertad.`
+            : `You have $${surplus.toLocaleString()} extra. If you apply that to "${targetDebt.name}", you'll completely eliminate that debt ${savedMonths} months faster. Buy back your freedom.`
         };
       } else {
         return {
-          icon: '💡', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)',
-          title: isEs ? 'Movimiento Inteligente' : 'Smart Move',
+          icon: '🔥', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)',
+          title: isEs ? '¡Golpe Final!' : 'Knockout Blow!',
           text: isEs
-            ? `¡Use su excedente de $${surplus.toLocaleString()} para liquidar "${targetDebt.name}" hoy mismo!`
-            : `Use your $${surplus.toLocaleString()} surplus to completely pay off "${targetDebt.name}" today!`
+            ? `¡Usa tu excedente de $${surplus.toLocaleString()} para liquidar "${targetDebt.name}" hoy mismo y quítate ese peso de encima!`
+            : `Use your $${surplus.toLocaleString()} surplus to completely pay off "${targetDebt.name}" today and get that weight off your shoulders!`
         };
       }
     }
@@ -105,10 +91,10 @@ export function Dashboard({
       const months = Math.ceil(remaining / surplus);
       return {
         icon: '🌟', color: 'var(--primary-color)', bg: 'rgba(212, 175, 55, 0.1)',
-        title: isEs ? 'Objetivo a la Vista' : 'Vision Target',
+        title: isEs ? 'Visión a la Vista' : 'Vision in Sight',
         text: isEs
-          ? `¡Siga ahorrando sus $${surplus.toLocaleString()} extra! A este ritmo, financiará completamente su "${activeVision.title}" en solo ${months} mes(es).`
-          : `Keep saving your $${surplus.toLocaleString()} surplus! At this pace, you will fully fund "${activeVision.title}" in just ${months} month(s).`
+          ? `¡Sigue guardando tu excedente de $${surplus.toLocaleString()}! A este ritmo, financiarás completamente "${activeVision.title}" en solo ${months} mes(es). Estás construyendo tu sueño.`
+          : `Keep saving your $${surplus.toLocaleString()} surplus! At this pace, you will fully fund "${activeVision.title}" in just ${months} month(s). You are building your dream.`
       };
     }
 
@@ -117,7 +103,7 @@ export function Dashboard({
       icon: '👑', color: 'var(--primary-color)', bg: 'rgba(212, 175, 55, 0.1)',
       title: isEs ? 'Creación de Riqueza' : 'Wealth Building',
       text: isEs
-        ? `¡Excelente! Tiene $${surplus.toLocaleString()} extra y cero deudas. Es el momento perfecto para comprar un activo que genere flujo de caja pasivo.`
+        ? `¡Excelente! Tienes $${surplus.toLocaleString()} extra y cero deudas. Es el momento perfecto para comprar un activo que ponga dinero en tu bolsillo.`
         : `Excellent! You have $${surplus.toLocaleString()} extra and zero active debts. This is the perfect time to buy a cash-flowing asset.`
     };
   };
@@ -169,9 +155,9 @@ export function Dashboard({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
         
         {/* Cash Flow Card */}
-        <div style={{ background: 'var(--card-bg)', padding: '25px', borderRadius: '16px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div style={{ background: 'var(--card-bg)', padding: '25px', borderRadius: '16px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-sm)' }}>
           <div>
-            <h4 style={{ margin: '0 0 10px 0', color: 'var(--text-muted)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <h4 style={{ margin: '0 0 10px 0', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               {isEs ? 'Flujo de Caja Mensual' : 'Monthly Cash Flow'}
             </h4>
             <div style={{ fontSize: '2.2rem', fontWeight: 'bold', color: cashFlow >= 0 ? '#10b981' : '#ef4444' }}>
@@ -180,15 +166,15 @@ export function Dashboard({
           </div>
           <p style={{ margin: '12px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             {cashFlow >= 0 
-              ? (isEs ? 'Excedente listo para comprar activos.' : 'Surplus ready to acquire assets.')
-              : (isEs ? 'Déficit mensual: recorte pasivos de inmediato.' : 'Monthly deficit: cut liabilities immediately.')}
+              ? (isEs ? 'Excedente listo para crear riqueza.' : 'Surplus ready to build wealth.')
+              : (isEs ? 'Déficit mensual: hora de ser creativos.' : 'Monthly deficit: time to get creative.')}
           </p>
         </div>
 
         {/* Financial Freedom Gauge Card */}
-        <div style={{ background: 'var(--card-bg)', padding: '25px', borderRadius: '16px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div style={{ background: 'var(--card-bg)', padding: '25px', borderRadius: '16px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-sm)' }}>
           <div>
-            <h4 style={{ margin: '0 0 10px 0', color: 'var(--text-muted)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <h4 style={{ margin: '0 0 10px 0', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               {isEs ? 'Índice de Libertad Financiera' : 'Freedom Index (Passive / Expenses)'}
             </h4>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
@@ -208,9 +194,9 @@ export function Dashboard({
         </div>
 
         {/* Waste Index Card */}
-        <div style={{ background: 'var(--card-bg)', padding: '25px', borderRadius: '16px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div style={{ background: 'var(--card-bg)', padding: '25px', borderRadius: '16px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-sm)' }}>
           <div>
-            <h4 style={{ margin: '0 0 10px 0', color: 'var(--text-muted)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <h4 style={{ margin: '0 0 10px 0', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               {isEs ? 'Gastos Hormiga y Lujos' : 'Waste / Non-Essential Index'}
             </h4>
             <div style={{ fontSize: '2.2rem', fontWeight: 'bold', color: wastePercentage > 20 ? '#ef4444' : '#10b981' }}>
@@ -219,17 +205,17 @@ export function Dashboard({
           </div>
           <p style={{ margin: '12px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             {wastePercentage > 20
-              ? (isEs ? 'Atención: Sus gastos hormiga reducen su capacidad de inversión.' : 'Warning: High waste limits asset acquisition.')
+              ? (isEs ? 'Atención: Estos gastos limitan su crecimiento.' : 'Warning: High waste limits your growth.')
               : (isEs ? 'Excelente disciplina de gastos.' : 'Excellent spending discipline.')}
           </p>
         </div>
       </div>
 
       {/* THE SMART MOVES ALGORITHMIC CFO CARD */}
-      <div style={{ background: smartMove.bg, border: `1px solid ${smartMove.color}`, padding: '20px', borderRadius: '16px', display: 'flex', gap: '15px', alignItems: 'center' }}>
-        <div style={{ fontSize: '2.5rem' }}>{smartMove.icon}</div>
+      <div style={{ background: smartMove.bg, border: `1px solid ${smartMove.color}`, padding: '20px', borderRadius: '16px', display: 'flex', gap: '15px', alignItems: 'flex-start', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ fontSize: '2rem', marginTop: '2px' }}>{smartMove.icon}</div>
         <div>
-          <h3 style={{ margin: '0 0 5px 0', color: smartMove.color, fontSize: '1.1rem' }}>{smartMove.title}</h3>
+          <h3 style={{ margin: '0 0 6px 0', color: smartMove.color, fontSize: '1.1rem' }}>{smartMove.title}</h3>
           <p style={{ margin: 0, color: 'var(--text-color)', fontSize: '0.95rem', lineHeight: '1.5' }}>
             {smartMove.text}
           </p>
@@ -242,7 +228,8 @@ export function Dashboard({
         padding: '25px', 
         borderRadius: '16px', 
         border: isPro ? '2px solid var(--primary-color)' : '1px dashed var(--primary-color)',
-        position: 'relative'
+        position: 'relative',
+        boxShadow: 'var(--shadow-sm)'
       }}>
         {isPro ? (
           <div>

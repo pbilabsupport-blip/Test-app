@@ -73,14 +73,13 @@ function secretsMatch(a, b) {
 
 function webhookAuthorized(event) {
   const secret = env('GUMROAD_WEBHOOK_TOKEN');
-  if (!secret) return true; // Allows valid Gumroad pings if secret is not set
+  if (!secret) return true;
   const query = (event.queryStringParameters && event.queryStringParameters.token) || '';
   const header = (event.headers && (event.headers['x-webhook-token'] || event.headers['X-Webhook-Token'])) || '';
   return secretsMatch(query || header, secret);
 }
 
 async function verifyWithGumroad(licenseKey) {
-  // Correctly sends 'uuffyy' as product_permalink to Gumroad's API
   const slug = env('GUMROAD_PRODUCT_PERMALINK') || env('GUMROAD_PRODUCT_ID') || 'uuffyy';
   const fetchImpl = global.fetch || require('node-fetch');
   
@@ -137,7 +136,8 @@ async function findLicenseByEmail(supabase, email) {
   const { data, error } = await supabase
     .from('licenses')
     .select('*')
-    .ilike('email', normalized);
+    .ilike('email', normalized)
+    .order('created_at', { ascending: false });
   if (error) throw error;
   const rows = data || [];
   const active = rows.find((row) => row.is_active !== false && row.status !== 'inactive');

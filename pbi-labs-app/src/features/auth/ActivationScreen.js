@@ -3,7 +3,7 @@ import { useAppContext } from '../../context/AppContext';
 import AdSlot from '../../components/ads/AdSlot';
 import { confirmDeviceReset, requestDeviceReset } from '../../services/licenseApi';
 import { supabase } from '../../services/supabase';
-import { FiEye, FiEyeOff } from 'react-icons/fi'; // Added for password visibility
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 
 const DISPOSABLE_DOMAINS = [
   '10minutemail.com', 'temp-mail.org', 'guerrillamail.com',
@@ -36,6 +36,7 @@ export default function ActivationScreen() {
   const [proEmail, setProEmail] = useState('');
   const [licenseKey, setLicenseKey] = useState('');
   const [freeEmail, setFreeEmail] = useState('');
+  const [confirmFreeEmail, setConfirmFreeEmail] = useState('');
   const [freePassword, setFreePassword] = useState('');
   const [isSignUpMode, setIsSignUpMode] = useState(true);
   
@@ -73,23 +74,35 @@ export default function ActivationScreen() {
     setError(null);
     setResetMessage('');
 
-    if (!freeEmail.trim() || !freePassword.trim()) {
+    const cleanEmail = freeEmail.trim();
+    const cleanConfirm = confirmFreeEmail.trim();
+
+    if (!cleanEmail || !freePassword.trim()) {
       setError(isEs ? 'Por favor ingrese correo y contraseña.' : 'Please enter email and password.');
       return;
     }
-    if (isSignUpMode && !validateEmailDomain(freeEmail.trim())) {
-      setError(isEs ? 'Correos temporales no permitidos.' : 'Temporary emails are not allowed.');
-      return;
+    if (isSignUpMode) {
+      if (cleanEmail.toLowerCase() !== cleanConfirm.toLowerCase()) {
+        setError(isEs ? 'Los correos electrónicos no coinciden. Verifique su ortografía.' : 'Email addresses do not match. Please check your spelling.');
+        return;
+      }
+      if (!validateEmailDomain(cleanEmail)) {
+        setError(isEs ? 'Correos temporales no permitidos.' : 'Temporary emails are not allowed.');
+        return;
+      }
     }
     if (freePassword.length < 6) {
       setError(isEs ? 'La contraseña debe tener al menos 6 caracteres.' : 'Password must be at least 6 characters.');
       return;
     }
+    setLoading(true);
     try {
-      if (isSignUpMode) await handleFreeSignUp(freeEmail.trim(), freePassword);
-      else await handleFreeLogin(freeEmail.trim(), freePassword);
+      if (isSignUpMode) await handleFreeSignUp(cleanEmail, freePassword);
+      else await handleFreeLogin(cleanEmail, freePassword);
     } catch (err) {
       setError(describeAuthError(null, err.message, isEs));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -144,7 +157,7 @@ export default function ActivationScreen() {
       setOtpStep('code');
       setOtpMessage(result.message);
     } catch (err) {
-      setOtpMessage(describeAuthError(err.code, err.message, isEs));
+      setOtpMessage(err.message || describeAuthError(err.code, err.message, isEs));
     } finally {
       setLoading(false);
     }
@@ -198,7 +211,7 @@ export default function ActivationScreen() {
           </div>
         )}
 
-        {/* Success Banner (For Password Resets) */}
+        {/* Success Banner */}
         {resetMessage && (
           <div style={{ padding: '15px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--success-color)', color: 'var(--success-color)', borderRadius: '8px', marginBottom: '20px', textAlign: 'center', fontWeight: 'bold', animation: 'fadeIn 0.3s' }}>
             {resetMessage}
@@ -216,7 +229,7 @@ export default function ActivationScreen() {
                   {isSignUpMode ? (isEs ? 'Crear Cuenta' : 'Create Account') : (isEs ? 'Iniciar Sesión' : 'Log In')}
                 </h2>
                 <p style={{ color: 'var(--text-muted)', textAlign: 'center', fontSize: '0.9rem', marginBottom: '20px' }}>
-                  {isEs ? 'Su bóveda se guarda en este dispositivo. Pro cubre hasta 2 dispositivos.' : 'Your vault is saved on this device. Pro covers up to 2 devices.'}
+                  {isEs ? 'Su bóveda se guarda en la nube. Pro cubre hasta 2 dispositivos.' : 'Your vault is backed up in the cloud. Pro covers up to 2 devices.'}
                 </p>
                 
                 <div style={{ display: 'flex', background: 'var(--bg-color)', padding: '4px', borderRadius: '8px', marginBottom: '20px', border: '1px solid var(--border-color)' }}>
@@ -226,6 +239,11 @@ export default function ActivationScreen() {
                 
                 <form onSubmit={onFreeSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px', flex: 1 }}>
                   <input type="email" required placeholder="name@example.com" value={freeEmail} onChange={(e) => setFreeEmail(e.target.value)} style={inputStyle} />
+
+                  {/* Prevent typo signups */}
+                  {isSignUpMode && (
+                    <input type="email" required placeholder={isEs ? 'Confirmar correo electrónico' : 'Confirm email address'} value={confirmFreeEmail} onChange={(e) => setConfirmFreeEmail(e.target.value)} style={inputStyle} />
+                  )}
                   
                   {/* PASSWORD INPUT WITH EYE TOGGLE */}
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>

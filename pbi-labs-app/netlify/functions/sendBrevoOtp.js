@@ -29,14 +29,15 @@ exports.handler = async function handler(event) {
     const apiKey = env('BREVO_API_KEY');
     const senderEmail = env('BREVO_SENDER_EMAIL');
     if (!apiKey || !senderEmail) {
-      return json(500, { success: false, code: 'MISSING_CONFIG', error: 'Email sending is not configured.' });
+      return json(500, { success: false, code: 'MISSING_CONFIG', error: 'Brevo API key or sender email is not configured.' });
     }
 
     const supabase = getSupabaseAdmin();
     const license = await findLicenseByEmail(supabase, email);
     if (!license || !license.license_key) return json(200, GENERIC);
 
-    if (license.otp_sent_at) {
+    // 60-second cooldown only triggers if the previous email was actually sent successfully
+    if (license.otp_sent_at && license.otp_hash) {
       const elapsed = Date.now() - new Date(license.otp_sent_at).getTime();
       if (elapsed >= 0 && elapsed < 60 * 1000) return json(200, GENERIC);
     }
@@ -45,16 +46,6 @@ exports.handler = async function handler(event) {
     const otpHash = hashOtp(otpCode, license.license_key);
     const now = new Date();
     const expiry = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
-
-    const { error: saveError } = await supabase
-      .from('licenses')
-      .update({
-        otp_hash: otpHash,
-        otp_expiry: expiry,
-        otp_sent_at: now.toISOString()
-      })
-      .eq('license_key', license.license_key);
-    if (saveError) throw saveError;
 
     const isEs = language === 'es';
     const subject = isEs ? 'P.B.I. Labs: Recuperación de dispositivo' : 'P.B.I. Labs: Device recovery';
@@ -83,9 +74,26 @@ exports.handler = async function handler(event) {
     });
 
     if (!response.ok) {
-      console.error('Brevo rejected the recovery email', response.status);
-      return json(502, { success: false, code: 'EMAIL_FAILED', error: 'Could not send the recovery email.' });
+      const brevoDetails = await response.json().catch(() => ({}));
+      const reason = brevoDetails.message || `Status ${response.status}`;
+      console.error('Brevo rejected recovery email:', response.status, brevoDetails);
+      return json(502, {
+        success: false,
+        code: 'EMAIL_FAILED',
+        error: `Email service error (${reason}).`
+      });
     }
+
+    // ONLY save the OTP hash and cooldown timestamp AFTER Brevo confirms delivery
+    const { error: saveError } = await supabase
+      .from('licenses')
+      .update({
+        otp_hash: otpHash,
+        otp_expiry: expiry,
+        otp_sent_at: now.toISOString()
+      })
+      .eq('license_key', license.license_key);
+    if (saveError) throw saveError;
 
     return json(200, GENERIC);
   } catch (error) {

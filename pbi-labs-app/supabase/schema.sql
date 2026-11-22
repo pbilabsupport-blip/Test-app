@@ -1,7 +1,7 @@
--- Run this in the Supabase SQL editor before deploying the security update.
+-- Run this in the Supabase SQL editor.
+-- Safe to run multiple times without overwriting existing data.
 -- The Netlify functions use the service role, which bypasses RLS.
--- The anon key used by the website has no policies here, so it cannot read
--- licenses, seats, reminders, or push subscriptions.
+-- Authenticated Free users can only read/write their own row in user_vault.
 
 create table if not exists public.licenses (
   license_key text primary key,
@@ -63,7 +63,46 @@ create table if not exists public.push_subscriptions (
   updated_at timestamptz default now()
 );
 
+create table if not exists public.user_vault (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  incomes jsonb not null default '[]'::jsonb,
+  expenses jsonb not null default '[]'::jsonb,
+  assets jsonb not null default '[]'::jsonb,
+  liabilities jsonb not null default '[]'::jsonb,
+  vision_board jsonb not null default '[]'::jsonb,
+  life_list jsonb not null default '[]'::jsonb,
+  updated_at timestamptz default now()
+);
+
+alter table public.user_vault add column if not exists incomes jsonb not null default '[]'::jsonb;
+alter table public.user_vault add column if not exists expenses jsonb not null default '[]'::jsonb;
+alter table public.user_vault add column if not exists assets jsonb not null default '[]'::jsonb;
+alter table public.user_vault add column if not exists liabilities jsonb not null default '[]'::jsonb;
+alter table public.user_vault add column if not exists vision_board jsonb not null default '[]'::jsonb;
+alter table public.user_vault add column if not exists life_list jsonb not null default '[]'::jsonb;
+alter table public.user_vault add column if not exists updated_at timestamptz default now();
+
 alter table public.licenses enable row level security;
 alter table public.device_seats enable row level security;
 alter table public.payment_reminders enable row level security;
 alter table public.push_subscriptions enable row level security;
+alter table public.user_vault enable row level security;
+
+drop policy if exists "Users can read own vault" on public.user_vault;
+create policy "Users can read own vault"
+  on public.user_vault for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own vault" on public.user_vault;
+create policy "Users can insert own vault"
+  on public.user_vault for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own vault" on public.user_vault;
+create policy "Users can update own vault"
+  on public.user_vault for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

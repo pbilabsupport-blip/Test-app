@@ -15,15 +15,27 @@ exports.handler = async function handler(event) {
     const body = readBody(event) || {};
     const supabase = getSupabaseAdmin();
     const caller = await assertReminderCaller(supabase, body);
-    if (!caller) return json(401, { success: false, code: 'UNAUTHORIZED', error: 'Sign in again before enabling push.' });
+    if (!caller) {
+      return json(401, {
+        success: false,
+        code: 'UNAUTHORIZED',
+        error: 'Sign in again before enabling push.'
+      });
+    }
 
     const subscription = body.subscription;
     if (!subscription || !subscription.endpoint) {
-      return json(400, { success: false, code: 'BAD_REQUEST', error: 'Missing push subscription.' });
+      return json(400, {
+        success: false,
+        code: 'BAD_REQUEST',
+        error: 'Missing push subscription.'
+      });
     }
 
     const tone = ['gentle', 'direct', 'urgent'].includes(body.tone) ? body.tone : 'direct';
-    const leadDays = Math.max(0, Math.min(14, Number(body.leadDays) || 1));
+    const rawLead = Number(body.leadDays);
+    const leadDays = Number.isFinite(rawLead) ? Math.max(0, Math.min(14, Math.round(rawLead))) : 1;
+
     const row = {
       email: caller.email,
       endpoint: subscription.endpoint,
@@ -34,8 +46,11 @@ exports.handler = async function handler(event) {
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await supabase.from('push_subscriptions').upsert([row], { onConflict: 'endpoint' });
+    const { error } = await supabase
+      .from('push_subscriptions')
+      .upsert([row], { onConflict: 'endpoint' });
     if (error) throw error;
+
     return json(200, { success: true });
   } catch (error) {
     return publicError(error);

@@ -2,8 +2,8 @@ import React from 'react';
 import { useAppContext } from '../../../../context/AppContext';
 import { recordPayment, recordYield } from '../ledger';
 import ReminderSettings from '../../../../components/reminders/ReminderSettings';
+import { parseDateParts } from '../../../../services/reminderTone';
 
-// Executive Micro-Reward Audio Chime (VOLUME BOOSTED)
 function playSuccessChime(type = 'payment') {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -14,34 +14,32 @@ function playSuccessChime(type = 'payment') {
 
     osc.type = 'sine';
     if (type === 'payoff') {
-      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-      osc.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.15); // E5
-      osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.3); // G5
-      osc.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.45); // C6
-      
-      // Volume increased to 80%
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.15);
+      osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.3);
+      osc.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.45);
+
       gain.gain.setValueAtTime(0.8, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-      
+
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.6);
     } else {
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
-      
-      // Volume increased to 80%
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+
       gain.gain.setValueAtTime(0.8, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-      
+
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.25);
     }
   } catch (e) {
-    // Audio context safely ignored if blocked by browser policy
+    // Audio context safely ignored if blocked
   }
 }
 
@@ -62,12 +60,13 @@ export const ActionCenter = ({
   const isEs = language === 'es';
 
   const advanceDate = (dateStr, freq) => {
-    if (!dateStr) return '';
-    const [month, day, year] = dateStr.split('-');
-    const d = new Date(year, month - 1, day);
+    const parts = parseDateParts(dateStr);
+    const d = parts ? new Date(parts.year, parts.month - 1, parts.day) : new Date();
+    if (Number.isNaN(d.getTime())) return '';
+
     if (freq === 'weekly') d.setDate(d.getDate() + 7);
     else d.setMonth(d.getMonth() + 1);
-    
+
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     const yyyy = d.getFullYear();
@@ -77,11 +76,13 @@ export const ActionCenter = ({
   const getDueStatus = (dateStr) => {
     if (!dateStr) return { stage: 'future', text: isEs ? 'Sin fecha' : 'No date', color: '#94a3b8', priority: 4 };
 
+    const parts = parseDateParts(dateStr);
+    if (!parts) return { stage: 'future', text: dateStr, color: '#94a3b8', priority: 4 };
+
     const todayStr = new Date().toISOString().slice(0, 10);
-    const [m, d, y] = dateStr.split('-');
-    if (!m || !d || !y) return { stage: 'future', text: dateStr, color: '#94a3b8', priority: 4 };
-    
-    const dueTime = Date.parse(`${y}-${m}-${d}T00:00:00Z`);
+    const mm = String(parts.month).padStart(2, '0');
+    const dd = String(parts.day).padStart(2, '0');
+    const dueTime = Date.parse(`${parts.year}-${mm}-${dd}T00:00:00Z`);
     const todayTime = Date.parse(`${todayStr}T00:00:00Z`);
 
     if (Number.isNaN(dueTime) || Number.isNaN(todayTime)) {
@@ -160,7 +161,7 @@ export const ActionCenter = ({
   };
 
   const activeAssets = assets.filter(a => Number(a.yieldAmount) > 0);
-  
+
   const sortedLiabilities = [...liabilities]
     .filter(l => l.requiresPayments === true)
     .sort((a, b) => {
@@ -171,7 +172,7 @@ export const ActionCenter = ({
 
   return (
     <div style={{ paddingBottom: '90px', animation: 'fadeIn 0.3s ease' }}>
-      
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '2px solid var(--primary-color)', paddingBottom: '12px' }}>
         <div>
           <h2 style={{ color: 'var(--text-color)', margin: 0 }}>
@@ -186,8 +187,7 @@ export const ActionCenter = ({
       <ReminderSettings prefs={reminderPrefs} onChange={setReminderPrefs} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px', marginTop: '20px' }}>
-        
-        {/* Active Debts & Bills Column */}
+
         <div style={{ background: 'var(--card-bg)', padding: '25px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h3 style={{ color: 'var(--danger-color)', margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -208,25 +208,24 @@ export const ActionCenter = ({
               const isPersonalLoan = l.category === 'Personal' || l.isPersonalLoan;
 
               return (
-                <div 
-                  key={l.id} 
-                  style={{ 
-                    background: 'var(--bg-color)', 
-                    padding: '18px', 
-                    borderRadius: '12px', 
-                    marginBottom: '15px', 
+                <div
+                  key={l.id}
+                  style={{
+                    background: 'var(--bg-color)',
+                    padding: '18px',
+                    borderRadius: '12px',
+                    marginBottom: '15px',
                     border: '1px solid var(--border-color)',
-                    borderLeft: `5px solid ${dueInfo.color}` 
+                    borderLeft: `5px solid ${dueInfo.color}`
                   }}>
-                  
-                  {/* Header: Name and Status Badge */}
+
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
                     <div>
                       <div style={{ fontWeight: 'bold', fontSize: '1rem', color: 'var(--text-color)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span>{isPersonalLoan ? '🤝' : '📄'}</span> {l.name}
                       </div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        {isPersonalLoan 
+                        {isPersonalLoan
                           ? (isEs ? 'Préstamo personal / informal' : 'Personal / handshake loan')
                           : (isEs ? 'Obligación financiera' : 'Financial bill')}
                       </div>
@@ -236,7 +235,6 @@ export const ActionCenter = ({
                     </div>
                   </div>
 
-                  {/* Urgency Alert Bar */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '14px 0', padding: '8px 12px', background: dueInfo.badgeBg, borderRadius: '8px' }}>
                     <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: dueInfo.color }}>
                       {dueInfo.text}
@@ -246,17 +244,16 @@ export const ActionCenter = ({
                     </span>
                   </div>
 
-                  {/* Mark as Paid Action */}
-                  <button 
-                    onClick={() => handleProcessPayment('liability', l.id)} 
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      backgroundColor: dueInfo.stage === 'overdue' ? '#ef4444' : 'var(--card-bg)', 
-                      color: dueInfo.stage === 'overdue' ? '#fff' : 'var(--text-color)', 
-                      border: `1px solid ${dueInfo.color}`, 
-                      borderRadius: '8px', 
-                      fontWeight: 'bold', 
+                  <button
+                    onClick={() => handleProcessPayment('liability', l.id)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      backgroundColor: dueInfo.stage === 'overdue' ? '#ef4444' : 'var(--card-bg)',
+                      color: dueInfo.stage === 'overdue' ? '#fff' : 'var(--text-color)',
+                      border: `1px solid ${dueInfo.color}`,
+                      borderRadius: '8px',
+                      fontWeight: 'bold',
                       cursor: 'pointer',
                       fontSize: '0.95rem',
                       display: 'flex',
@@ -273,7 +270,6 @@ export const ActionCenter = ({
           )}
         </div>
 
-        {/* Passive Income Asset Yields Column */}
         <div style={{ background: 'var(--card-bg)', padding: '25px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h3 style={{ color: 'var(--success-color)', margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -290,35 +286,35 @@ export const ActionCenter = ({
             </p>
           ) : (
             activeAssets.map(a => (
-              <div 
-                key={a.id} 
-                style={{ 
-                  background: 'var(--bg-color)', 
-                  padding: '18px', 
-                  borderRadius: '12px', 
-                  marginBottom: '15px', 
+              <div
+                key={a.id}
+                style={{
+                  background: 'var(--bg-color)',
+                  padding: '18px',
+                  borderRadius: '12px',
+                  marginBottom: '15px',
                   border: '1px solid var(--border-color)',
-                  borderLeft: '5px solid var(--success-color)' 
+                  borderLeft: '5px solid var(--success-color)'
                 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '1rem' }}>
                   <span>{a.name}</span>
                   <span style={{ color: 'var(--success-color)' }}>+${Number(a.yieldAmount || 0).toFixed(2)}</span>
                 </div>
-                
+
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '12px 0' }}>
                   {isEs ? 'Próximo cobro:' : 'Next collection:'} {a.nextDate || (isEs ? 'Mensual' : 'Monthly')}
                 </div>
 
-                <button 
-                  onClick={() => handleProcessPayment('asset', a.id)} 
-                  style={{ 
-                    width: '100%', 
-                    padding: '12px', 
-                    backgroundColor: 'var(--success-color)', 
-                    color: 'white', 
-                    border: 'none', 
-                    borderRadius: '8px', 
-                    fontWeight: 'bold', 
+                <button
+                  onClick={() => handleProcessPayment('asset', a.id)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: 'var(--success-color)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 'bold',
                     cursor: 'pointer',
                     fontSize: '0.95rem'
                   }}>

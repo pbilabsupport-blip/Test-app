@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { FaDownload, FaTimes, FaApple } from 'react-icons/fa';
 import { useAppContext } from '../context/AppContext';
 
+const DISMISSED_KEY = 'pbi_pwa_prompt_dismissed';
+
 export const PwaInstallPrompt = () => {
   const { language } = useAppContext();
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
@@ -9,7 +11,8 @@ export const PwaInstallPrompt = () => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // 1. Detect Apple iOS (Because Apple blocks standard PWA prompts)
+    if (localStorage.getItem(DISMISSED_KEY) === 'true') return undefined;
+
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
     const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
@@ -19,10 +22,10 @@ export const PwaInstallPrompt = () => {
       setIsVisible(true);
     }
 
-    // 2. Intercept Android/Windows Install Prompt
     const handleBeforeInstallPrompt = (e) => {
-      e.preventDefault(); // Stop the ugly default browser bar
-      setInstallPromptEvent(e); // Save it so we can trigger it with our beautiful button
+      e.preventDefault();
+      if (localStorage.getItem(DISMISSED_KEY) === 'true') return;
+      setInstallPromptEvent(e);
       setIsVisible(true);
     };
 
@@ -32,21 +35,38 @@ export const PwaInstallPrompt = () => {
 
   if (!isVisible) return null;
 
+  const handleDismiss = () => {
+    localStorage.setItem(DISMISSED_KEY, 'true');
+    setIsVisible(false);
+  };
+
   const handleInstallClick = async () => {
     if (!installPromptEvent) return;
     installPromptEvent.prompt();
     const { outcome } = await installPromptEvent.userChoice;
     if (outcome === 'accepted') {
+      localStorage.setItem(DISMISSED_KEY, 'true');
       setIsVisible(false);
     }
   };
 
   const containerStyle = {
-    position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
-    width: '90%', maxWidth: '400px', backgroundColor: 'var(--card-bg)',
-    color: 'var(--text-color)', padding: '20px', borderRadius: '16px',
-    boxShadow: '0 10px 40px rgba(0,0,0,0.3)', border: '1px solid var(--primary-color)',
-    zIndex: 10000, display: 'flex', flexDirection: 'column', gap: '15px'
+    position: 'fixed',
+    bottom: '84px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: '90%',
+    maxWidth: '400px',
+    backgroundColor: 'var(--card-bg)',
+    color: 'var(--text-color)',
+    padding: '20px',
+    borderRadius: '16px',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.35)',
+    border: '1px solid var(--primary-color)',
+    zIndex: 4000,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '14px'
   };
 
   return (
@@ -60,13 +80,13 @@ export const PwaInstallPrompt = () => {
             {language === 'es' ? 'Acceso rápido y seguro desde su pantalla de inicio.' : 'Fast, secure access directly from your home screen.'}
           </p>
         </div>
-        <button onClick={() => setIsVisible(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}>
+        <button onClick={handleDismiss} aria-label="Close" style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}>
           <FaTimes />
         </button>
       </div>
 
       {isIos ? (
-        <div style={{ fontSize: '0.9rem', padding: '10px', backgroundColor: 'var(--toggle-bg)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+        <div style={{ fontSize: '0.9rem', padding: '10px', backgroundColor: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
           <p style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <FaApple size={18} /> <strong>Apple iOS:</strong>
           </p>
@@ -76,7 +96,7 @@ export const PwaInstallPrompt = () => {
           </ol>
         </div>
       ) : (
-        <button onClick={handleInstallClick} style={{ width: '100%', padding: '14px', backgroundColor: 'var(--primary-color)', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
+        <button onClick={handleInstallClick} style={{ width: '100%', padding: '14px', backgroundColor: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
           <FaDownload /> {language === 'es' ? 'Instalar Ahora' : 'Install Now'}
         </button>
       )}

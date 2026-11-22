@@ -7,6 +7,8 @@ import AboutUs from './components/legal/AboutUs';
 import PrivacyPolicy from './components/legal/PrivacyPolicy';
 import TermsOfService from './components/legal/TermsOfService';
 import ContactUs from './components/legal/ContactUs';
+import CookieConsent from './components/legal/CookieConsent';
+import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
 
 function describeRecoveryError(message, isEs) {
@@ -35,7 +37,6 @@ function MainRouter() {
 
   const [currentView, setCurrentView] = useState('dashboard');
 
-  // Password Recovery State
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -197,6 +198,8 @@ function MainRouter() {
       <>
         {renderRecoveryModal()}
         <ActivationScreen />
+        <PwaInstallPrompt />
+        <CookieConsent />
       </>
     );
   }
@@ -222,6 +225,8 @@ function MainRouter() {
       <footer style={{ textAlign: 'center', padding: '15px', fontSize: '0.75rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)' }}>
         powered by P.B.I. Labs
       </footer>
+      <PwaInstallPrompt />
+      <CookieConsent />
     </div>
   );
 }

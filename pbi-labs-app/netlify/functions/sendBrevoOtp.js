@@ -11,11 +11,6 @@ const {
   publicError
 } = require('./_lib');
 
-const GENERIC = {
-  success: true,
-  message: 'If a license exists for that email, a recovery code is on the way.'
-};
-
 exports.handler = async function handler(event) {
   const methodError = requirePost(event);
   if (methodError) return methodError;
@@ -24,22 +19,52 @@ exports.handler = async function handler(event) {
     const body = readBody(event);
     const email = normalizeEmail(body && body.email);
     const language = body && body.language === 'es' ? 'es' : 'en';
-    if (!email) return json(400, { success: false, code: 'BAD_REQUEST', error: 'Email is required.' });
+    const isEs = language === 'es';
+
+    const genericResponse = {
+      success: true,
+      message: isEs
+        ? 'Si existe una licencia activa para ese correo, el código de recuperación está en camino.'
+        : 'If an active license exists for that email, a recovery code is on the way.'
+    };
+
+    if (!email) {
+      return json(400, {
+        success: false,
+        code: 'BAD_REQUEST',
+        error: isEs ? 'El correo electrónico es obligatorio.' : 'Email is required.'
+      });
+    }
 
     const apiKey = env('BREVO_API_KEY');
     const senderEmail = env('BREVO_SENDER_EMAIL');
     if (!apiKey || !senderEmail) {
-      return json(500, { success: false, code: 'MISSING_CONFIG', error: 'Brevo API key or sender email is not configured.' });
+      return json(500, {
+        success: false,
+        code: 'MISSING_CONFIG',
+        error: 'Brevo API key or sender email is not configured.'
+      });
     }
 
     const supabase = getSupabaseAdmin();
     const license = await findLicenseByEmail(supabase, email);
-    if (!license || !license.license_key) return json(200, GENERIC);
 
-    // 60-second cooldown only triggers if the previous email was actually sent successfully
+    // Do not leak account status or send reset codes for refunded/inactive licenses
+    if (
+      !license ||
+      !license.license_key ||
+      license.is_active === false ||
+      license.status === 'inactive'
+    ) {
+      return json(200, genericResponse);
+    }
+
+    // 60-second cooldown only triggers if a previous code was actually sent
     if (license.otp_sent_at && license.otp_hash) {
       const elapsed = Date.now() - new Date(license.otp_sent_at).getTime();
-      if (elapsed >= 0 && elapsed < 60 * 1000) return json(200, GENERIC);
+      if (elapsed >= 0 && elapsed < 60 * 1000) {
+        return json(200, genericResponse);
+      }
     }
 
     const otpCode = crypto.randomInt(100000, 1000000).toString();
@@ -47,7 +72,6 @@ exports.handler = async function handler(event) {
     const now = new Date();
     const expiry = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
 
-    const isEs = language === 'es';
     const subject = isEs ? 'P.B.I. Labs: Recuperación de dispositivo' : 'P.B.I. Labs: Device recovery';
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
@@ -84,7 +108,7 @@ exports.handler = async function handler(event) {
       });
     }
 
-    // ONLY save the OTP hash and cooldown timestamp AFTER Brevo confirms delivery
+    // Only save the OTP hash and cooldown timestamp after Brevo confirms delivery
     const { error: saveError } = await supabase
       .from('licenses')
       .update({
@@ -93,9 +117,10 @@ exports.handler = async function handler(event) {
         otp_sent_at: now.toISOString()
       })
       .eq('license_key', license.license_key);
+
     if (saveError) throw saveError;
 
-    return json(200, GENERIC);
+    return json(200, genericResponse);
   } catch (error) {
     return publicError(error);
   }

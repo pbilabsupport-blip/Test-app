@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import { useAppContext } from '../../../../context/AppContext';
 import { FiPlus, FiTrash2, FiTarget, FiLock, FiCalendar, FiUpload, FiImage, FiCheckCircle } from 'react-icons/fi';
 
-// Clean curated presets with high-res imagery
 const PRESET_IMAGES = [
   { label: 'Real Estate / Casa', url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80' },
   { label: 'Dream Car / Auto', url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600&auto=format&fit=crop&q=80' },
@@ -11,11 +10,42 @@ const PRESET_IMAGES = [
   { label: 'Business / Negocio', url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&auto=format&fit=crop&q=80' }
 ];
 
-export function VisionBoard({ 
-  visionCards = [], 
-  setVisionCards, 
+// Resize & compress phone/desktop photos so cloud backups stay fast (~80KB)
+function compressImageFile(file, maxWidth = 800, quality = 0.78) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read image'));
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onerror = () => resolve(event.target.result);
+      img.onload = () => {
+        try {
+          const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(event.target.result);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (err) {
+          resolve(event.target.result);
+        }
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+export function VisionBoard({
+  visionCards = [],
+  setVisionCards,
   cashFlow = 0,
-  showToast 
+  showToast
 }) {
   const { language, authSession } = useAppContext();
   const isEs = language === 'es';
@@ -25,16 +55,14 @@ export function VisionBoard({
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const buyUrl = process.env.REACT_APP_GUMROAD_URL || 'https://gumroad.com';
 
-  // Form State for new SMART Vision Goal
   const [title, setTitle] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
   const [currentAmount, setCurrentAmount] = useState('');
-  const [targetDate, setTargetDate] = useState(''); // Format: MM-DD-YYYY
+  const [targetDate, setTargetDate] = useState('');
   const [imageUrl, setImageUrl] = useState(PRESET_IMAGES[0].url);
-  const [imageSourceMode, setImageSourceMode] = useState('upload'); // 'upload' | 'preset'
+  const [imageSourceMode, setImageSourceMode] = useState('upload');
   const fileInputRef = useRef(null);
 
-  // Free Tier Limit: Max 3 vision items on Free
   const freeLimitReached = !isPro && visionCards.length >= 3;
 
   const handleOpenAdd = () => {
@@ -45,36 +73,39 @@ export function VisionBoard({
     }
   };
 
-  // Direct device photo upload handler (Converts to Base64 for safe cloud saving)
-  const handlePhotoUpload = (e) => {
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
-    if (file.size > 3 * 1024 * 1024) {
-      alert(isEs ? 'La foto no debe superar 3MB.' : 'Photo must be under 3MB.');
+    if (file.size > 8 * 1024 * 1024) {
+      const msg = isEs ? 'La foto no debe superar 8MB.' : 'Photo must be under 8MB.';
+      if (showToast) showToast(msg);
+      else alert(msg);
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      setImageUrl(uploadEvent.target.result);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressedDataUrl = await compressImageFile(file);
+      setImageUrl(compressedDataUrl);
+    } catch (err) {
+      const msg = isEs ? 'No se pudo cargar la foto.' : 'Could not load that photo.';
+      if (showToast) showToast(msg);
+    }
   };
 
   const handleSaveGoal = (e) => {
     e.preventDefault();
     if (!title.trim() || !targetAmount) return;
 
-    const target = Number(targetAmount) || 0;
-    const current = Number(currentAmount) || 0;
+    const target = Math.max(1, Number(targetAmount) || 0);
+    const current = Math.max(0, Number(currentAmount) || 0);
 
     const newCard = {
       id: Date.now(),
       title: title.trim(),
       targetAmount: target,
       currentAmount: current,
-      targetDate: targetDate.trim(), // MM-DD-YYYY
+      targetDate: targetDate.trim().replace(/\//g, '-'),
       imageUrl: imageUrl || PRESET_IMAGES[0].url,
       createdAt: new Date().toISOString()
     };
@@ -118,32 +149,31 @@ export function VisionBoard({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', animation: 'fadeIn 0.3s ease' }}>
-      
-      {/* Header Banner */}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
         <div>
           <h2 style={{ margin: 0, color: 'var(--text-color)', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span>🌟</span> {isEs ? 'Tablero de Visión y Metas SMART' : 'Vision Board & SMART Goals'}
           </h2>
           <p style={{ margin: '5px 0 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            {isEs 
-              ? '“Escribe la visión y haz que resalte en tablas.” — Steve Harvey. Asigne su flujo de caja para materializar sus sueños.' 
+            {isEs
+              ? '“Escribe la visión y haz que resalte en tablas.” — Steve Harvey. Asigne su flujo de caja para materializar sus sueños.'
               : '"Write the vision and make it plain." — Steve Harvey. Back your dreams with real cash flow.'}
           </p>
         </div>
 
-        <button 
+        <button
           onClick={handleOpenAdd}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px', 
-            padding: '12px 22px', 
-            background: 'var(--primary-color)', 
-            color: '#000', 
-            border: 'none', 
-            borderRadius: '8px', 
-            fontWeight: 'bold', 
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '12px 22px',
+            background: 'var(--primary-color)',
+            color: '#000',
+            border: 'none',
+            borderRadius: '8px',
+            fontWeight: 'bold',
             cursor: 'pointer',
             fontSize: '0.95rem'
           }}>
@@ -151,13 +181,12 @@ export function VisionBoard({
         </button>
       </div>
 
-      {/* Free Tier Capacity Indicator */}
       {!isPro && (
         <div style={{ background: 'var(--card-bg)', padding: '12px 18px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
           <span style={{ color: 'var(--text-muted)' }}>
             {isEs ? `Bóveda Gratis: ${visionCards.length} de 3 visiones activas.` : `Free Vault: ${visionCards.length} of 3 active vision cards used.`}
           </span>
-          <button 
+          <button
             onClick={() => setShowUpgradeModal(true)}
             style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline' }}>
             {isEs ? 'Desbloquear Visiones Ilimitadas ($5/mes)' : 'Unlock Unlimited Vision Cards ($5/mo)'}
@@ -165,7 +194,6 @@ export function VisionBoard({
         </div>
       )}
 
-      {/* Vision Cards Grid */}
       {visionCards.length === 0 ? (
         <div style={{ background: 'var(--card-bg)', padding: '50px 20px', borderRadius: '16px', border: '2px dashed var(--border-color)', textAlign: 'center' }}>
           <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🎯</div>
@@ -173,11 +201,11 @@ export function VisionBoard({
             {isEs ? 'Su Tablero de Visión está vacío' : 'Your Vision Board is Empty'}
           </h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '500px', margin: '0 auto 20px auto' }}>
-            {isEs 
+            {isEs
               ? 'Suba fotos del hogar que desea, el viaje que sueña o la deuda que liquidará para comenzar a financiarlo.'
               : 'Upload photos of your dream home, the business you want to launch, or the debt you will conquer.'}
           </p>
-          <button 
+          <button
             onClick={handleOpenAdd}
             style={{ padding: '12px 24px', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
             {isEs ? '+ Crear Primer Sueño' : '+ Create First Vision Goal'}
@@ -195,35 +223,32 @@ export function VisionBoard({
             const monthsToAchieve = cashFlow > 0 ? Math.ceil(remaining / cashFlow) : null;
 
             return (
-              <div 
+              <div
                 key={card.id}
-                style={{ 
-                  background: 'var(--card-bg)', 
-                  borderRadius: '16px', 
-                  border: isCompleted ? '2px solid #10b981' : '1px solid var(--border-color)', 
+                style={{
+                  background: 'var(--card-bg)',
+                  borderRadius: '16px',
+                  border: isCompleted ? '2px solid #10b981' : '1px solid var(--border-color)',
                   overflow: 'hidden',
                   display: 'flex',
                   flexDirection: 'column',
                   position: 'relative'
                 }}>
-                
-                {/* Vision Image Header */}
+
                 <div style={{ height: '190px', width: '100%', position: 'relative', overflow: 'hidden', background: '#000' }}>
-                  <img 
-                    src={card.imageUrl} 
-                    alt={card.title} 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isCompleted ? 0.95 : 0.85 }} 
+                  <img
+                    src={card.imageUrl}
+                    alt={card.title}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isCompleted ? 0.95 : 0.85 }}
                   />
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%)' }} />
-                  
-                  {/* Delete button */}
-                  <button 
+
+                  <button
                     onClick={() => handleDelete(card.id)}
                     style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#ef4444', padding: '8px', borderRadius: '50%', cursor: 'pointer' }}>
                     <FiTrash2 />
                   </button>
 
-                  {/* Completion Badge */}
                   {isCompleted && (
                     <div style={{ position: 'absolute', top: '12px', left: '12px', background: '#10b981', color: '#fff', fontSize: '0.75rem', fontWeight: 'bold', padding: '5px 12px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <FiCheckCircle /> {isEs ? '¡100% CUMPLIDO!' : '100% ACHIEVED!'}
@@ -235,10 +260,8 @@ export function VisionBoard({
                   </div>
                 </div>
 
-                {/* Card Content & SMART Details */}
                 <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px', flex: 1, justifyContent: 'space-between' }}>
-                  
-                  {/* Progress Bar & Percentage */}
+
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
                       <span style={{ fontSize: '1.35rem', fontWeight: 'bold', color: isCompleted ? '#10b981' : 'var(--primary-color)' }}>
@@ -254,7 +277,6 @@ export function VisionBoard({
                     </div>
                   </div>
 
-                  {/* SMART Criteria Tags */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                     {card.targetDate && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -262,37 +284,36 @@ export function VisionBoard({
                         <span>{isEs ? 'Fecha Meta (MM-DD-YYYY):' : 'Target Date (MM-DD-YYYY):'} <strong>{card.targetDate}</strong></span>
                       </div>
                     )}
-                    
+
                     {!isCompleted && monthsToAchieve !== null && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <FiTarget style={{ color: '#10b981' }} />
                         <span>
-                          {isEs 
-                            ? `Alcanzable en ~${monthsToAchieve} mes(es) con su flujo actual.` 
+                          {isEs
+                            ? `Alcanzable en ~${monthsToAchieve} mes(es) con su flujo actual.`
                             : `Achievable in ~${monthsToAchieve} mo(s) with your surplus cash flow.`}
                         </span>
                       </div>
                     )}
                   </div>
 
-                  {/* Funding Actions */}
                   {!isCompleted ? (
                     <div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', fontWeight: 'bold' }}>
                         {isEs ? 'Asignar Dinero a Este Sueño:' : 'Fund This Vision Goal:'}
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button 
+                        <button
                           onClick={() => handleAddFunds(card.id, 50)}
                           style={{ flex: 1, padding: '9px', background: 'var(--bg-color)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>
                           +$50
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleAddFunds(card.id, 100)}
                           style={{ flex: 1, padding: '9px', background: 'var(--bg-color)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>
                           +$100
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleAddFunds(card.id, 500)}
                           style={{ flex: 1, padding: '9px', background: 'var(--bg-color)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>
                           +$500
@@ -312,7 +333,6 @@ export function VisionBoard({
         </div>
       )}
 
-      {/* Modal: Add New SMART Vision Goal */}
       {isModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, padding: '20px' }}>
           <div style={{ background: 'var(--card-bg)', padding: '28px', borderRadius: '16px', maxWidth: '520px', width: '100%', border: '1px solid var(--border-color)', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -328,13 +348,13 @@ export function VisionBoard({
                 <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
                   {isEs ? 'S (Específico): Nombre del Sueño o Meta' : 'S (Specific): Name of Dream or Goal'}
                 </label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
-                  placeholder={isEs ? 'Ej: Casa de Playa / Fondo de Emergencia' : 'e.g., Beach House / Emergency Fund'} 
-                  value={title} 
+                  placeholder={isEs ? 'Ej: Casa de Playa / Fondo de Emergencia' : 'e.g., Beach House / Emergency Fund'}
+                  value={title}
                   onChange={e => setTitle(e.target.value)}
-                  style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }} 
+                  style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }}
                 />
               </div>
 
@@ -343,25 +363,29 @@ export function VisionBoard({
                   <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
                     {isEs ? 'M (Monto Meta $)' : 'M (Target Amount $)'}
                   </label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
+                    min="1"
+                    step="any"
                     required
-                    placeholder="15000" 
-                    value={targetAmount} 
+                    placeholder="15000"
+                    value={targetAmount}
                     onChange={e => setTargetAmount(e.target.value)}
-                    style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }} 
+                    style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }}
                   />
                 </div>
                 <div>
                   <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
                     {isEs ? 'Ahorro Actual ($)' : 'Current Saved ($)'}
                   </label>
-                  <input 
-                    type="number" 
-                    placeholder="0" 
-                    value={currentAmount} 
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="0"
+                    value={currentAmount}
                     onChange={e => setCurrentAmount(e.target.value)}
-                    style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }} 
+                    style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }}
                   />
                 </div>
               </div>
@@ -370,49 +394,46 @@ export function VisionBoard({
                 <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
                   {isEs ? 'T (Tiempo Límite): Formato MM-DD-YYYY' : 'T (Time-Bound): MM-DD-YYYY Format'}
                 </label>
-                <input 
-                  type="text" 
-                  placeholder="12-31-2027" 
-                  value={targetDate} 
+                <input
+                  type="text"
+                  placeholder="12-31-2027"
+                  value={targetDate}
                   onChange={e => setTargetDate(e.target.value)}
-                  style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }} 
+                  style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px' }}
                 />
               </div>
 
-              {/* R (RELEVANT): PHOTO SELECTION SYSTEM */}
               <div>
                 <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>
                   {isEs ? 'R (Relevante): Foto de Inspiración' : 'R (Relevant): Inspiration Photo'}
                 </label>
 
-                {/* Mode Selector Tabs */}
                 <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setImageSourceMode('upload')}
                     style={{ flex: 1, padding: '8px', background: imageSourceMode === 'upload' ? 'var(--primary-color)' : 'var(--bg-color)', color: imageSourceMode === 'upload' ? '#000' : 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.85rem' }}>
                     <FiUpload /> {isEs ? 'Subir de mi Dispositivo' : 'Upload from Device'}
                   </button>
 
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setImageSourceMode('preset')}
                     style={{ flex: 1, padding: '8px', background: imageSourceMode === 'preset' ? 'var(--primary-color)' : 'var(--bg-color)', color: imageSourceMode === 'preset' ? '#000' : 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.85rem' }}>
                     <FiImage /> {isEs ? 'Elegir Ejemplo' : 'Choose Preset'}
                   </button>
                 </div>
 
-                {/* Option A: Direct Device Upload */}
                 {imageSourceMode === 'upload' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <input 
-                      type="file" 
+                    <input
+                      type="file"
                       accept="image/*"
                       ref={fileInputRef}
                       onChange={handlePhotoUpload}
-                      style={{ display: 'none' }} 
+                      style={{ display: 'none' }}
                     />
-                    <button 
+                    <button
                       type="button"
                       onClick={() => fileInputRef.current && fileInputRef.current.click()}
                       style={{ width: '100%', padding: '16px', background: 'var(--bg-color)', border: '2px dashed var(--primary-color)', borderRadius: '8px', color: 'var(--text-color)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
@@ -420,25 +441,24 @@ export function VisionBoard({
                       <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
                         {isEs ? 'Tocar para seleccionar foto de su galería o archivos' : 'Click to select photo from your phone or PC'}
                       </span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>JPG, PNG (máx. 3MB)</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>JPG, PNG (máx. 8MB · auto-optimizado)</span>
                     </button>
                   </div>
                 )}
 
-                {/* Option B: Clean Preset Thumbnails Grid */}
                 {imageSourceMode === 'preset' && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
                     {PRESET_IMAGES.map((preset, idx) => (
-                      <div 
+                      <div
                         key={idx}
                         onClick={() => setImageUrl(preset.url)}
-                        style={{ 
-                          position: 'relative', 
-                          height: '70px', 
-                          borderRadius: '8px', 
-                          overflow: 'hidden', 
-                          cursor: 'pointer', 
-                          border: imageUrl === preset.url ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' 
+                        style={{
+                          position: 'relative',
+                          height: '70px',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          cursor: 'pointer',
+                          border: imageUrl === preset.url ? '3px solid var(--primary-color)' : '1px solid var(--border-color)'
                         }}>
                         <img src={preset.url} alt={preset.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', textAlign: 'center' }}>
@@ -449,7 +469,6 @@ export function VisionBoard({
                   </div>
                 )}
 
-                {/* Live Preview Box */}
                 {imageUrl && (
                   <div style={{ marginTop: '10px', height: '100px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', position: 'relative' }}>
                     <img src={imageUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -461,13 +480,13 @@ export function VisionBoard({
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   style={{ flex: 1, padding: '14px', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
                   {isEs ? 'Guardar en mi Visión' : 'Save to Vision Board'}
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setIsModalOpen(false)}
                   style={{ padding: '14px 20px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer' }}>
                   {isEs ? 'Cancelar' : 'Cancel'}
@@ -478,7 +497,6 @@ export function VisionBoard({
         </div>
       )}
 
-      {/* Upgrade Modal for Unlimited Vision Cards */}
       {showUpgradeModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, padding: '20px' }}>
           <div style={{ background: 'var(--card-bg)', padding: '30px', borderRadius: '16px', maxWidth: '480px', width: '100%', border: '2px solid var(--primary-color)', textAlign: 'center' }}>
@@ -487,19 +505,19 @@ export function VisionBoard({
               {isEs ? 'Tablero de Visión Ilimitado' : 'Unlimited Vision Board'}
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '20px' }}>
-              {isEs 
+              {isEs
                 ? 'La versión gratis cubre hasta 3 visiones. Desbloquee visiones ilimitadas, lista de 100 sueños de Steve Harvey y su Asistente AI personal con Pro ($5.00/mes).'
                 : 'Free accounts cover up to 3 vision cards. Unlock unlimited vision cards, the full 100-item Steve Harvey life list, and your personal AI CFO with Pro ($5.00/mo).'}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <a 
-                href={buyUrl} 
-                target="_blank" 
+              <a
+                href={buyUrl}
+                target="_blank"
                 rel="noreferrer"
                 style={{ display: 'block', padding: '14px', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#fff', textDecoration: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem' }}>
                 {isEs ? 'Desbloquear Pro por $5/mes' : 'Unlock Pro for $5/mo'}
               </a>
-              <button 
+              <button
                 onClick={() => setShowUpgradeModal(false)}
                 style={{ padding: '12px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer' }}>
                 {isEs ? 'Continuar en Bóveda Gratis' : 'Continue on Free Vault'}

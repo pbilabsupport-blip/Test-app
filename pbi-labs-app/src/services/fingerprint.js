@@ -11,6 +11,7 @@ const getFingerprint = async () => {
     const result = await fp.get();
     return result.visitorId;
   } catch (error) {
+    fpPromise = null;
     console.error('Fingerprint generation failed, falling back to local ID:', error);
     let fallbackId = localStorage.getItem('pbi_fallback_device_id');
     if (!fallbackId) {

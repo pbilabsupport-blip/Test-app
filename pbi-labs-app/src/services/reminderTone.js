@@ -12,7 +12,8 @@ export function loadReminderPrefs() {
     const saved = JSON.parse(localStorage.getItem(REMINDER_PREFS_KEY) || 'null');
     if (!saved) return { ...DEFAULT_REMINDER_PREFS };
     const tone = ['gentle', 'direct', 'urgent'].includes(saved.tone) ? saved.tone : 'direct';
-    const leadDays = Math.max(0, Math.min(14, Number(saved.leadDays) || 1));
+    const rawLead = Number(saved.leadDays);
+    const leadDays = Number.isFinite(rawLead) ? Math.max(0, Math.min(14, Math.round(rawLead))) : 1;
     return {
       enabled: saved.enabled === true,
       tone,
@@ -78,11 +79,45 @@ export function playTone(tone) {
   oscillator.onended = () => ctx.close();
 }
 
-export function daysUntil(dateStr) {
+export function parseDateParts(dateStr) {
   if (!dateStr) return null;
-  const parts = String(dateStr).split('-').map(Number);
-  if (parts.length < 3 || parts.some((part) => Number.isNaN(part))) return null;
-  const target = new Date(parts[0], parts[1] - 1, parts[2]);
+  const cleaned = String(dateStr).trim().replace(/\//g, '-');
+  const rawParts = cleaned.split('-');
+  if (rawParts.length !== 3) return null;
+
+  const nums = rawParts.map(Number);
+  if (nums.some((n) => Number.isNaN(n))) return null;
+
+  let year;
+  let month;
+  let day;
+
+  if (rawParts[0].length === 4) {
+    // YYYY-MM-DD
+    [year, month, day] = nums;
+  } else if (rawParts[2].length === 4) {
+    // MM-DD-YYYY
+    [month, day, year] = nums;
+  } else {
+    return null;
+  }
+
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) return null;
+  return { year, month, day };
+}
+
+export function toIsoDate(dateStr) {
+  const parts = parseDateParts(dateStr);
+  if (!parts) return null;
+  const mm = String(parts.month).padStart(2, '0');
+  const dd = String(parts.day).padStart(2, '0');
+  return `${parts.year}-${mm}-${dd}`;
+}
+
+export function daysUntil(dateStr) {
+  const parts = parseDateParts(dateStr);
+  if (!parts) return null;
+  const target = new Date(parts.year, parts.month - 1, parts.day);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return Math.round((target - today) / 86400000);

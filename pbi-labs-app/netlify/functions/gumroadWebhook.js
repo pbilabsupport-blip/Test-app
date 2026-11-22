@@ -3,6 +3,7 @@ const {
   readBody,
   getSupabaseAdmin,
   normalizeEmail,
+  webhookAuthorized,
   saveLicense
 } = require('./_lib');
 
@@ -15,23 +16,27 @@ exports.handler = async function handler(event) {
     return json(405, { error: 'Method Not Allowed' });
   }
 
+  if (!webhookAuthorized(event)) {
+    return json(401, { error: 'Unauthorized' });
+  }
+
   try {
     const payload = readBody(event) || {};
     const licenseKey = String(payload.license_key || payload.licenseKey || '').trim();
     const email = normalizeEmail(payload.email);
 
-    // If it's a test ping with no key, return 200 OK
+    // Acknowledge Gumroad ping tests that do not include a license key
     if (!licenseKey) {
       return json(200, { ok: true, message: 'Test ping acknowledged.' });
     }
 
     const supabase = getSupabaseAdmin();
 
-    // LOGICAL CHECK: Inspect the actual sale status from Gumroad
     const isRefunded = isTruthy(payload.refunded);
     const isChargebacked = isTruthy(payload.chargebacked);
+    const isDisputed = isTruthy(payload.disputed);
     const isEnded = isTruthy(payload.ended);
-    
+
     let isExpired = false;
     if (payload.subscription_ended_at) {
       const endedTime = new Date(payload.subscription_ended_at).getTime();
@@ -40,8 +45,7 @@ exports.handler = async function handler(event) {
       }
     }
 
-    // A sale is active if it has not been refunded, chargebacked, or expired
-    const isActive = !isRefunded && !isChargebacked && !isEnded && !isExpired;
+    const isActive = !isRefunded && !isChargebacked && !isDisputed && !isEnded && !isExpired;
 
     if (!isActive) {
       await saveLicense(supabase, { licenseKey, email, active: false });
@@ -49,7 +53,6 @@ exports.handler = async function handler(event) {
       return json(200, { ok: true, status: 'inactive' });
     }
 
-    // AUTOMATIC IMPORT: Mark active in Supabase
     await saveLicense(supabase, { licenseKey, email, active: true });
     return json(200, { ok: true, status: 'active' });
   } catch (error) {

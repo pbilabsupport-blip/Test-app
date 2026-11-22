@@ -1,8 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useAppContext } from '../../../../context/AppContext';
-import { FiPlus, FiCheckCircle, FiAward, FiCalendar, FiTrash2, FiLock, FiRotateCw, FiCornerDownLeft } from 'react-icons/fi';
+import { FiCheckCircle, FiAward, FiTrash2, FiRotateCw, FiCornerDownLeft } from 'react-icons/fi';
 
-// Audio Chime for Manifested Dreams
 function playVictoryChime() {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -12,10 +11,10 @@ function playVictoryChime() {
     const gain = ctx.createGain();
 
     osc.type = 'triangle';
-    osc.frequency.setValueAtTime(440, ctx.currentTime); // A4
-    osc.frequency.exponentialRampToValueAtTime(554.37, ctx.currentTime + 0.12); // C#5
-    osc.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.24); // E5
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.4); // A5
+    osc.frequency.setValueAtTime(440, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(554.37, ctx.currentTime + 0.12);
+    osc.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.24);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.4);
 
     gain.gain.setValueAtTime(0.2, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.7);
@@ -37,10 +36,10 @@ function getTodayMMDDYYYY() {
   return `${mm}-${dd}-${yyyy}`;
 }
 
-export function LifeList({ 
-  lifeList = [], 
-  setLifeList, 
-  showToast 
+export function LifeList({
+  lifeList = [],
+  setLifeList,
+  showToast
 }) {
   const { language, authSession } = useAppContext();
   const isEs = language === 'es';
@@ -48,9 +47,8 @@ export function LifeList({
 
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [activeTab, setActiveTab] = useState('list'); // 'list' | 'victory_wall'
+  const [activeTab, setActiveTab] = useState('list');
 
-  // Rapid-Fire Inline State
   const [rapidText, setRapidText] = useState('');
   const [rapidCategory, setRapidCategory] = useState('Personal');
   const rapidInputRef = useRef(null);
@@ -62,15 +60,20 @@ export function LifeList({
   const [claimingItem, setClaimingItem] = useState(null);
   const [claimDate, setClaimDate] = useState(getTodayMMDDYYYY());
 
-  // Filter items by selected year
+  const availableYears = Array.from(new Set([
+    currentYear - 1,
+    currentYear,
+    currentYear + 1,
+    selectedYear,
+    ...lifeList.map(item => Number(item.year)).filter(Boolean)
+  ])).sort((a, b) => a - b);
+
   const yearItems = lifeList.filter(item => (Number(item.year) || currentYear) === selectedYear);
   const completedItems = yearItems.filter(item => item.isCompleted);
   const pendingItems = yearItems.filter(item => !item.isCompleted);
 
-  // Free Tier Limit: Max 10 items per year on Free
   const freeLimitReached = !isPro && yearItems.length >= 10;
 
-  // RAPID-FIRE INLINE ENTRY: Type dream and press Enter
   const handleRapidAdd = (e) => {
     if (e) e.preventDefault();
     if (!rapidText.trim()) return;
@@ -107,7 +110,7 @@ export function LifeList({
         return {
           ...item,
           isCompleted: true,
-          completedDate: claimDate || getTodayMMDDYYYY()
+          completedDate: claimDate.trim().replace(/\//g, '-') || getTodayMMDDYYYY()
         };
       }
       return item;
@@ -127,7 +130,6 @@ export function LifeList({
     }
   };
 
-  // New Year Rollover
   const handleRollover = () => {
     if (!isPro) {
       setShowUpgradeModal(true);
@@ -135,9 +137,10 @@ export function LifeList({
     }
 
     const nextYear = selectedYear + 1;
-    const itemsToRollover = pendingItems.map(item => ({
+    const baseId = Date.now();
+    const itemsToRollover = pendingItems.map((item, idx) => ({
       ...item,
-      id: Date.now() + Math.random(),
+      id: baseId + idx + 1,
       year: nextYear,
       isCompleted: false,
       completedDate: ''
@@ -145,37 +148,36 @@ export function LifeList({
 
     setLifeList([...lifeList, ...itemsToRollover]);
     setSelectedYear(nextYear);
+    setIsReviewOpen(false);
     if (showToast) {
-      showToast(isEs 
-        ? `🔄 ${itemsToRollover.length} sueños pendientes transferidos a su lista de ${nextYear}.` 
+      showToast(isEs
+        ? `🔄 ${itemsToRollover.length} sueños pendientes transferidos a su lista de ${nextYear}.`
         : `🔄 ${itemsToRollover.length} uncompleted dreams rolled over to your ${nextYear} list.`);
     }
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeIn 0.3s ease' }}>
-      
-      {/* Header Banner */}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
         <div>
           <h2 style={{ margin: 0, color: 'var(--text-color)', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span>📜</span> {isEs ? `Lista de 100 Sueños (${selectedYear})` : `${selectedYear} 100-Item Life List`}
           </h2>
           <p style={{ margin: '5px 0 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            {isEs 
-              ? '“Escriba 100 cosas que desea en su vida este año. Léalas con frecuencia y táchelas cuando sucedan.” — Steve Harvey.' 
+            {isEs
+              ? '“Escriba 100 cosas que desea en su vida este año. Léalas con frecuencia y táchelas cuando sucedan.” — Steve Harvey.'
               : '"Write down 100 things you want in your life this year. Read them often, and cross them off as they happen." — Steve Harvey.'}
           </p>
         </div>
 
-        <button 
+        <button
           onClick={() => setIsReviewOpen(true)}
           style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', background: 'var(--card-bg)', color: 'var(--primary-color)', border: '1px solid var(--primary-color)', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
           <FiAward /> {isEs ? 'Revisión Anual' : 'Annual Review'}
         </button>
       </div>
 
-      {/* Annual Progress Meter */}
       <div style={{ background: 'var(--card-bg)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -184,16 +186,15 @@ export function LifeList({
             </span>
           </div>
 
-          {/* Year Switcher */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{isEs ? 'Año:' : 'Year:'}</span>
-            <select 
-              value={selectedYear} 
+            <select
+              value={selectedYear}
               onChange={e => setSelectedYear(Number(e.target.value))}
               style={{ padding: '6px 12px', background: 'var(--input-bg)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-              <option value={currentYear - 1}>{currentYear - 1}</option>
-              <option value={currentYear}>{currentYear}</option>
-              <option value={currentYear + 1}>{currentYear + 1}</option>
+              {availableYears.map(yr => (
+                <option key={yr} value={yr}>{yr}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -203,21 +204,20 @@ export function LifeList({
         </div>
       </div>
 
-      {/* RAPID-FIRE INLINE ENTRY BAR: Fast, no-popup notepad entry */}
       <form onSubmit={handleRapidAdd} style={{ background: 'var(--card-bg)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={{ fontWeight: 'bold', color: 'var(--primary-color)', fontSize: '0.9rem', paddingLeft: '6px' }}>
           #{yearItems.length + 1}
         </span>
-        <input 
+        <input
           ref={rapidInputRef}
-          type="text" 
+          type="text"
           value={rapidText}
           onChange={e => setRapidText(e.target.value)}
           placeholder={isEs ? 'Escriba un sueño y presione Enter (ej: Viajar a París, Comprar una casa)...' : 'Type a dream and press Enter (e.g., Trip to Paris, Buy a house)...'}
           style={{ flex: 1, minWidth: '220px', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', fontSize: '0.95rem', outline: 'none' }}
         />
-        <select 
-          value={rapidCategory} 
+        <select
+          value={rapidCategory}
           onChange={e => setRapidCategory(e.target.value)}
           style={{ padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>
           <option value="Personal">Personal / Lifestyle</option>
@@ -226,29 +226,27 @@ export function LifeList({
           <option value="Career">Career / Business</option>
           <option value="Spiritual">Health / Spiritual</option>
         </select>
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           style={{ padding: '12px 20px', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
           <FiCornerDownLeft /> {isEs ? 'Agregar' : 'Add'}
         </button>
       </form>
 
-      {/* Sub Navigation: The Active List vs. Victory Wall */}
       <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-        <button 
+        <button
           onClick={() => setActiveTab('list')}
           style={{ padding: '8px 18px', background: activeTab === 'list' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'list' ? '#000' : 'var(--text-color)', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
           {isEs ? `Lista de Sueños (${pendingItems.length})` : `Dreams in Progress (${pendingItems.length})`}
         </button>
 
-        <button 
+        <button
           onClick={() => setActiveTab('victory_wall')}
           style={{ padding: '8px 18px', background: activeTab === 'victory_wall' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'victory_wall' ? '#000' : 'var(--text-color)', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <FiAward /> {isEs ? `Muro de la Victoria (${completedItems.length})` : `Victory Wall (${completedItems.length})`}
         </button>
       </div>
 
-      {/* VIEW 1: ACTIVE DREAMS CHECKLIST */}
       {activeTab === 'list' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {pendingItems.length === 0 ? (
@@ -259,10 +257,10 @@ export function LifeList({
             </div>
           ) : (
             pendingItems.map((item, idx) => (
-              <div 
+              <div
                 key={item.id}
                 style={{ background: 'var(--card-bg)', padding: '14px 18px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
                   <span style={{ fontSize: '0.85rem', color: 'var(--primary-color)', fontWeight: 'bold', minWidth: '25px' }}>
                     #{idx + 1}
@@ -276,12 +274,12 @@ export function LifeList({
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <button 
+                  <button
                     onClick={() => { setClaimingItem(item); setClaimDate(getTodayMMDDYYYY()); }}
                     style={{ padding: '8px 14px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid #10b981', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <FiCheckCircle /> {isEs ? '¡Cumplido!' : 'Claim Victory'}
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleDelete(item.id)}
                     style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '6px' }}>
                     <FiTrash2 />
@@ -293,21 +291,20 @@ export function LifeList({
         </div>
       )}
 
-      {/* VIEW 2: THE VICTORY WALL (Trophy Room) */}
       {activeTab === 'victory_wall' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {completedItems.length === 0 ? (
             <div style={{ background: 'var(--card-bg)', padding: '40px 20px', borderRadius: '14px', border: '1px dashed var(--border-color)', textAlign: 'center' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🏆</div>
               <p style={{ color: 'var(--text-muted)', margin: 0 }}>
-                {isEs 
-                  ? 'Aún no ha marcado sueños cumplidos este año. ¡Cuando suceda, márquelo y se inmortalizará aquí!' 
+                {isEs
+                  ? 'Aún no ha marcado sueños cumplidos este año. ¡Cuando suceda, márquelo y se inmortalizará aquí!'
                   : 'No victories claimed yet this year. When a dream happens, claim it and it will be preserved here forever!'}
               </p>
             </div>
           ) : (
             completedItems.map((item) => (
-              <div 
+              <div
                 key={item.id}
                 style={{ background: 'var(--card-bg)', padding: '16px 20px', borderRadius: '12px', border: '1px solid #10b981', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -322,7 +319,7 @@ export function LifeList({
                   </div>
                 </div>
 
-                <button 
+                <button
                   onClick={() => handleDelete(item.id)}
                   style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                   <FiTrash2 />
@@ -333,7 +330,6 @@ export function LifeList({
         </div>
       )}
 
-      {/* Modal: Claim Victory Date Confirmation */}
       {claimingItem && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, padding: '20px' }}>
           <div style={{ background: 'var(--card-bg)', padding: '28px', borderRadius: '16px', maxWidth: '440px', width: '100%', border: '2px solid #10b981', textAlign: 'center' }}>
@@ -348,21 +344,21 @@ export function LifeList({
               {isEs ? '¿En qué fecha se cumplió? (Formato MM-DD-YYYY):' : 'What date was this accomplished? (MM-DD-YYYY):'}
             </p>
 
-            <input 
-              type="text" 
-              value={claimDate} 
+            <input
+              type="text"
+              value={claimDate}
               onChange={e => setClaimDate(e.target.value)}
               placeholder="MM-DD-YYYY"
               style={{ width: '100%', padding: '12px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', textAlign: 'center', fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '15px' }}
             />
 
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button 
+              <button
                 onClick={handleConfirmClaim}
                 style={{ flex: 1, padding: '12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
                 {isEs ? 'Confirmar Victoria' : 'Confirm Victory'}
               </button>
-              <button 
+              <button
                 onClick={() => setClaimingItem(null)}
                 style={{ padding: '12px 18px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer' }}>
                 {isEs ? 'Cancelar' : 'Cancel'}
@@ -372,7 +368,6 @@ export function LifeList({
         </div>
       )}
 
-      {/* Modal: Annual Review Scorecard & Rollover */}
       {isReviewOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, padding: '20px' }}>
           <div style={{ background: 'var(--card-bg)', padding: '30px', borderRadius: '16px', maxWidth: '520px', width: '100%', border: '2px solid var(--primary-color)', textAlign: 'center' }}>
@@ -384,18 +379,18 @@ export function LifeList({
               {completedItems.length} / {yearItems.length} {isEs ? 'Victorias Conseguidas' : 'Victories Achieved'}
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '20px' }}>
-              {isEs 
-                ? `En ${selectedYear}, usted materializó ${completedItems.length} metas de su lista. Todo lo que no se cumplió puede transferirse automáticamente al año siguiente.` 
+              {isEs
+                ? `En ${selectedYear}, usted materializó ${completedItems.length} metas de su lista. Todo lo que no se cumplió puede transferirse automáticamente al año siguiente.`
                 : `In ${selectedYear}, you manifested ${completedItems.length} goals from your list. Everything left over can easily roll forward to next year.`}
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button 
+              <button
                 onClick={handleRollover}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', background: 'var(--primary-color)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}>
                 <FiRotateCw /> {isEs ? `Transferir pendientes a ${selectedYear + 1}` : `Roll Over Remaining to ${selectedYear + 1}`}
               </button>
-              <button 
+              <button
                 onClick={() => setIsReviewOpen(false)}
                 style={{ padding: '12px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer' }}>
                 {isEs ? 'Cerrar' : 'Close'}
@@ -405,7 +400,6 @@ export function LifeList({
         </div>
       )}
 
-      {/* Upgrade Modal for Unlimited 100-Item List */}
       {showUpgradeModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 3000, padding: '20px' }}>
           <div style={{ background: 'var(--card-bg)', padding: '30px', borderRadius: '16px', maxWidth: '480px', width: '100%', border: '2px solid var(--primary-color)', textAlign: 'center' }}>
@@ -414,19 +408,19 @@ export function LifeList({
               {isEs ? 'Lista Completa de 100 Sueños' : 'Full 100-Item Life List'}
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5', marginBottom: '20px' }}>
-              {isEs 
+              {isEs
                 ? 'La versión gratis cubre hasta 10 sueños por año. Desbloquee los 100 sueños completos de Steve Harvey, transferencias anuales y Muro de la Victoria ilimitado con Pro ($5.00/mes).'
                 : 'Free accounts cover up to 10 dreams per year. Unlock the complete 100-item Steve Harvey list, annual rollovers, and permanent Victory Wall with Pro ($5.00/mo).'}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <a 
-                href={buyUrl} 
-                target="_blank" 
+              <a
+                href={buyUrl}
+                target="_blank"
                 rel="noreferrer"
                 style={{ display: 'block', padding: '14px', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#fff', textDecoration: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem' }}>
                 {isEs ? 'Desbloquear Pro por $5/mes' : 'Unlock Pro for $5/mo'}
               </a>
-              <button 
+              <button
                 onClick={() => setShowUpgradeModal(false)}
                 style={{ padding: '12px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer' }}>
                 {isEs ? 'Continuar en Bóveda Gratis' : 'Continue on Free Vault'}

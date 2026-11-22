@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useAppContext, LICENSE_STORAGE_KEY } from '../context/AppContext';
 import { syncReminders, savePushSubscription } from '../services/licenseApi';
-import { daysUntil, playTone, reminderCopy } from '../services/reminderTone';
+import { daysUntil, playTone, reminderCopy, toIsoDate } from '../services/reminderTone';
 
 const NOTIFIED_KEY = 'pbi_notified_days';
 
@@ -22,6 +22,26 @@ function dueItems(liabilities, leadDays) {
   });
 }
 
+async function displayLocalNotification(title, options) {
+  try {
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration && typeof registration.showNotification === 'function') {
+        await registration.showNotification(title, options);
+        return;
+      }
+    }
+  } catch (err) {
+    // Fall back to standard Notification API
+  }
+
+  try {
+    new Notification(title, options);
+  } catch (err) {
+    // Ignore if blocked by browser policy
+  }
+}
+
 export default function usePaymentReminders(liabilities, prefs) {
   const { authSession, language, getAccessToken } = useAppContext();
   const email = authSession?.email;
@@ -31,18 +51,26 @@ export default function usePaymentReminders(liabilities, prefs) {
     if (Notification.permission !== 'granted') return undefined;
 
     const tick = () => {
-      const lead = Number(prefs.leadDays) || 0;
+      const rawLead = Number(prefs.leadDays);
+      const lead = Number.isFinite(rawLead) ? rawLead : 0;
+      const today = new Date().toISOString().slice(0, 10);
+
       let notified = {};
       try {
-        notified = JSON.parse(localStorage.getItem(NOTIFIED_KEY) || '{}');
+        const stored = JSON.parse(localStorage.getItem(NOTIFIED_KEY) || '{}');
+        // Keep only today's stamps so storage stays clean
+        Object.keys(stored).forEach((key) => {
+          if (key.endsWith(`:${today}`)) notified[key] = stored[key];
+        });
       } catch (err) {
         notified = {};
       }
-      const today = new Date().toISOString().slice(0, 10);
+
       dueItems(liabilities, lead).forEach((item) => {
         const stamp = `${item.id}:${item.nextDate}:${today}`;
         if (notified[stamp]) return;
         notified[stamp] = true;
+
         const days = daysUntil(item.nextDate);
         const body = reminderCopy({
           tone: prefs.tone,
@@ -52,19 +80,18 @@ export default function usePaymentReminders(liabilities, prefs) {
           nextDate: item.nextDate,
           days
         });
-        try {
-          new Notification(language === 'es' ? 'Pago próximo' : 'Payment coming up', {
-            body,
-            icon: '/logo192.png',
-            tag: `pbi-${item.id}-${item.nextDate}`
-          });
-        } catch (err) {
-          // Some browsers only allow notifications from a service worker.
-        }
+
+        displayLocalNotification(language === 'es' ? 'Pago próximo' : 'Payment coming up', {
+          body,
+          icon: '/logo192.png',
+          tag: `pbi-${item.id}-${item.nextDate}`
+        });
+
         if (prefs.sound !== false) {
           try { playTone(prefs.tone); } catch (err) { /* sound is optional */ }
         }
       });
+
       localStorage.setItem(NOTIFIED_KEY, JSON.stringify(notified));
     };
 
@@ -81,12 +108,19 @@ export default function usePaymentReminders(liabilities, prefs) {
       const licenseKey = localStorage.getItem(LICENSE_STORAGE_KEY);
       const accessToken = authSession?.tier === 'free' ? await getAccessToken() : null;
       const items = prefs?.enabled
-        ? (liabilities || []).filter((item) => item.requiresPayments && item.nextDate).map((item) => ({
-          itemKey: String(item.id),
-          name: item.name,
-          amount: Number(item.paymentAmount) || 0,
-          nextDate: item.nextDate
-        }))
+        ? (liabilities || [])
+            .filter((item) => item.requiresPayments && item.nextDate)
+            .map((item) => {
+              const isoDate = toIsoDate(item.nextDate);
+              if (!isoDate) return null;
+              return {
+                itemKey: String(item.id),
+                name: item.name,
+                amount: Number(item.paymentAmount) || 0,
+                nextDate: isoDate
+              };
+            })
+            .filter(Boolean)
         : [];
 
       try {

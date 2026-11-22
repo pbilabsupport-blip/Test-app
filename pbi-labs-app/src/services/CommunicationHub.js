@@ -1,29 +1,33 @@
-// This acts as the master switchboard for P.B.I. Labs.
-// It allows different parts of the app to send messages to each other without getting tangled up.
+// Master switchboard for P.B.I. Labs.
+// Allows components to communicate cleanly without getting tangled up.
 
 class CommunicationHub {
   constructor() {
     this.events = {};
   }
 
-  // A component can "subscribe" to a channel to listen for instructions
+  // Subscribe to a channel and return an unsubscribe cleanup function
   subscribe(eventName, callback) {
     if (!this.events[eventName]) {
       this.events[eventName] = [];
     }
     this.events[eventName].push(callback);
+    return () => this.unsubscribe(eventName, callback);
   }
 
-  // Another component can "publish" a message to that channel
+  unsubscribe(eventName, callback) {
+    if (!this.events[eventName]) return;
+    this.events[eventName] = this.events[eventName].filter((cb) => cb !== callback);
+  }
+
   publish(eventName, data) {
     if (this.events[eventName]) {
-      this.events[eventName].forEach(callback => {
+      this.events[eventName].forEach((callback) => {
         callback(data);
       });
     }
   }
 }
 
-// We export a single master version of this switchboard for the whole app to share
 const masterHub = new CommunicationHub();
 export default masterHub;

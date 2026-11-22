@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import getFingerprint from '../services/fingerprint';
 import { verifyLicense } from '../services/licenseApi';
@@ -34,6 +34,34 @@ function persistSession(session) {
   }));
 }
 
+function hasRecoveryParamsInUrl() {
+  try {
+    const hash = window.location.hash || '';
+    const search = window.location.search || '';
+    const searchParams = new URLSearchParams(search);
+    return hash.includes('type=recovery') || searchParams.get('type') === 'recovery';
+  } catch (err) {
+    return false;
+  }
+}
+
+function cleanAuthParamsFromUrl() {
+  try {
+    const hash = window.location.hash || '';
+    const search = window.location.search || '';
+    if (
+      hash.includes('access_token=') ||
+      hash.includes('type=recovery') ||
+      search.includes('code=') ||
+      search.includes('type=recovery')
+    ) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  } catch (err) {
+    // Ignore history cleanup errors
+  }
+}
+
 const AppContext = createContext(null);
 
 export const AppProvider = ({ children }) => {
@@ -43,9 +71,12 @@ export const AppProvider = ({ children }) => {
   const [authSession, setAuthSession] = useState(() => readStoredSession());
   const [loading, setLoading] = useState(() => readStoredSession()?.tier === 'pro');
   const [authNotice, setAuthNotice] = useState(null);
-  
-  // STRESS PATH 1 FIX: Password Recovery State
-  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [recoveryMode, setRecoveryMode] = useState(() => hasRecoveryParamsInUrl());
+
+  const authSessionRef = useRef(authSession);
+  useEffect(() => {
+    authSessionRef.current = authSession;
+  }, [authSession]);
 
   const clearAuthNotice = useCallback(() => setAuthNotice(null), []);
 
@@ -59,13 +90,18 @@ export const AppProvider = ({ children }) => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // STRESS PATH 1 FIX: Listen for Supabase password recovery links
+  // Listen for Supabase auth & password recovery events
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    if (hasRecoveryParamsInUrl()) {
+      setRecoveryMode(true);
+    }
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setRecoveryMode(true);
       }
     });
+
     return () => {
       if (authListener && authListener.subscription) {
         authListener.subscription.unsubscribe();
@@ -131,31 +167,99 @@ export const AppProvider = ({ children }) => {
 
   // FREE SIGN UP
   const handleFreeSignUp = async (email, password) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const cleanEmail = email.trim();
+    const { data, error } = await supabase.auth.signUp({ email: cleanEmail, password });
     if (error) throw error;
-    const session = { success: true, tier: 'free', email };
-    setAuthSession(session);
-    persistSession(session);
-    localStorage.removeItem(LICENSE_STORAGE_KEY);
-    return { success: true, data };
+
+    // Supabase returns empty identities if user already exists when email confirmation is enabled
+    if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      throw new Error('User already registered');
+    }
+
+    // If Confirm Email is OFF (returns active session), log them straight in
+    if (data?.session) {
+      const session = {
+        success: true,
+        tier: 'free',
+        email: data.user?.email || cleanEmail
+      };
+      setAuthSession(session);
+      persistSession(session);
+      localStorage.removeItem(LICENSE_STORAGE_KEY);
+      return { success: true, needsEmailConfirmation: false, data };
+    }
+
+    // Fallback if Confirm Email is ever turned ON in Supabase
+    return { success: true, needsEmailConfirmation: true, data };
+  };
+
+  // RESEND CONFIRMATION EMAIL (Fallback if Confirm Email is enabled)
+  const handleResendConfirmation = async (email) => {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin }
+    });
+    if (error) throw error;
+    return { success: true };
   };
 
   // FREE LOGIN
   const handleFreeLogin = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const cleanEmail = email.trim();
+    const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
     if (error) throw error;
-    const session = { success: true, tier: 'free', email: data.user?.email || email };
+    const session = { success: true, tier: 'free', email: data.user?.email || cleanEmail };
     setAuthSession(session);
     persistSession(session);
     localStorage.removeItem(LICENSE_STORAGE_KEY);
     return { success: true, data };
   };
 
-  // UPDATE PASSWORD (Called after clicking the reset email link)
-  const handleUpdatePassword = async (newPassword) => {
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+  // REQUEST PASSWORD RESET EMAIL
+  const handleRequestPasswordReset = async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin
+    });
     if (error) throw error;
+    return { success: true };
+  };
+
+  // UPDATE PASSWORD (Works both from recovery email link AND while logged in)
+  const handleUpdatePassword = async (newPassword) => {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+
+    let userEmail = data?.user?.email;
+    if (!userEmail) {
+      const { data: userData } = await supabase.auth.getUser();
+      userEmail = userData?.user?.email;
+    }
+
+    // Log the Free user straight into the app after resetting via email link
+    if (userEmail && authSessionRef.current?.tier !== 'pro') {
+      const session = { success: true, tier: 'free', email: userEmail };
+      setAuthSession(session);
+      persistSession(session);
+      localStorage.removeItem(LICENSE_STORAGE_KEY);
+    }
+
     setRecoveryMode(false);
+    cleanAuthParamsFromUrl();
+    return { success: true };
+  };
+
+  // CANCEL PASSWORD RECOVERY MODAL
+  const cancelRecoveryMode = async () => {
+    setRecoveryMode(false);
+    cleanAuthParamsFromUrl();
+    if (!authSessionRef.current) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        // Ignore signOut errors on cancel
+      }
+    }
   };
 
   // PRO ACTIVATION
@@ -202,7 +306,9 @@ export const AppProvider = ({ children }) => {
       setTheme,
       authSession,
       handleFreeSignUp,
+      handleResendConfirmation,
       handleFreeLogin,
+      handleRequestPasswordReset,
       handleActivate,
       handleLogout,
       loading,
@@ -210,7 +316,8 @@ export const AppProvider = ({ children }) => {
       clearAuthNotice,
       getAccessToken,
       recoveryMode,
-      handleUpdatePassword
+      handleUpdatePassword,
+      cancelRecoveryMode
     }}>
       {children}
     </AppContext.Provider>

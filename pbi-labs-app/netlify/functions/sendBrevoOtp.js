@@ -24,8 +24,8 @@ exports.handler = async function handler(event) {
     const genericResponse = {
       success: true,
       message: isEs
-        ? 'Si existe una licencia activa para ese correo, el código de recuperación está en camino.'
-        : 'If an active license exists for that email, a recovery code is on the way.'
+        ? 'Si existe una licencia para ese correo, el código de recuperación está en camino.'
+        : 'If a license exists for that email, a recovery code is on the way.'
     };
 
     if (!email) {
@@ -48,18 +48,11 @@ exports.handler = async function handler(event) {
 
     const supabase = getSupabaseAdmin();
     const license = await findLicenseByEmail(supabase, email);
-
-    // Do not leak account status or send reset codes for refunded/inactive licenses
-    if (
-      !license ||
-      !license.license_key ||
-      license.is_active === false ||
-      license.status === 'inactive'
-    ) {
+    if (!license || !license.license_key) {
       return json(200, genericResponse);
     }
 
-    // 60-second cooldown only triggers if a previous code was actually sent
+    // 60-second cooldown only triggers if the previous email was actually sent
     if (license.otp_sent_at && license.otp_hash) {
       const elapsed = Date.now() - new Date(license.otp_sent_at).getTime();
       if (elapsed >= 0 && elapsed < 60 * 1000) {
@@ -108,7 +101,6 @@ exports.handler = async function handler(event) {
       });
     }
 
-    // Only save the OTP hash and cooldown timestamp after Brevo confirms delivery
     const { error: saveError } = await supabase
       .from('licenses')
       .update({

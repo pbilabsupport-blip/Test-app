@@ -37,13 +37,7 @@ exports.handler = async function handler(event) {
       error: 'That code is invalid or expired.'
     });
 
-    if (
-      !license ||
-      !license.otp_hash ||
-      !license.license_key ||
-      license.is_active === false ||
-      license.status === 'inactive'
-    ) {
+    if (!license || !license.otp_hash || !license.license_key) {
       return failure;
     }
 

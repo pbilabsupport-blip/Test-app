@@ -65,9 +65,9 @@ exports.handler = async function handler(event) {
       }
     }
 
-    const dbIsActive = dbLicense && dbLicense.is_active !== false && dbLicense.status !== 'inactive';
+    const dbIsActive = Boolean(dbLicense && dbLicense.is_active !== false && dbLicense.status !== 'inactive');
 
-    // 3. Heartbeat Mode: Verify session is still active (plus 24h Gumroad safety re-check)
+    // 3. Heartbeat Mode
     if (mode === 'heartbeat') {
       if (!dbLicense || !dbIsActive) {
         return json(401, {
@@ -82,8 +82,8 @@ exports.handler = async function handler(event) {
 
       if (needsReverify) {
         const gumroadData = await verifyWithGumroad(licenseKey);
-        if (!gumroadData.networkError) {
-          if (!gumroadData.success || isLicenseDead(gumroadData)) {
+        if (gumroadData && gumroadData.success === true) {
+          if (isLicenseDead(gumroadData)) {
             await saveLicense(supabase, { licenseKey, email, active: false });
             await supabase.from('device_seats').delete().eq('license_key', licenseKey);
             return json(401, {
@@ -96,20 +96,11 @@ exports.handler = async function handler(event) {
         }
       }
     } else {
-      // 4. Activate Mode: Always verify directly with Gumroad
+      // 4. Activate Mode
       const gumroadData = await verifyWithGumroad(licenseKey);
 
-      if (gumroadData.networkError) {
-        // Only fall back to DB if Gumroad is temporarily unreachable AND DB already has an active webhook record
-        if (!dbIsActive) {
-          return json(503, {
-            success: false,
-            code: 'NETWORK',
-            error: 'Could not reach Gumroad to verify your license. Please try again shortly.'
-          });
-        }
-      } else {
-        if (!gumroadData.success || isLicenseDead(gumroadData)) {
+      if (gumroadData && gumroadData.success === true) {
+        if (isLicenseDead(gumroadData)) {
           if (dbLicense) {
             await saveLicense(supabase, { licenseKey, email, active: false });
             await supabase.from('device_seats').delete().eq('license_key', licenseKey);
@@ -117,7 +108,7 @@ exports.handler = async function handler(event) {
           return json(401, {
             success: false,
             code: 'INVALID_LICENSE',
-            error: 'That license key is invalid, refunded, or no longer active.'
+            error: 'This license was refunded, cancelled, or has expired.'
           });
         }
 
@@ -134,6 +125,19 @@ exports.handler = async function handler(event) {
           licenseKey,
           email: gumroadEmail || email,
           active: true
+        });
+      } else if (dbIsActive) {
+        // Fallback: License was already verified as active in Supabase (e.g. via Gumroad Ping webhook)
+        // Do NOT wipe an active DB record when Gumroad returns a product-config or network mismatch
+        console.warn('Gumroad API check skipped/failed for already-active DB license:', gumroadData && gumroadData.message);
+      } else {
+        const reason = (gumroadData && (gumroadData.message || gumroadData.error)) || '';
+        return json(401, {
+          success: false,
+          code: reason ? 'GUMROAD_REJECTED' : 'INVALID_LICENSE',
+          error: reason
+            ? `Gumroad verification failed: ${reason}`
+            : 'That license key is invalid or no longer active.'
         });
       }
     }

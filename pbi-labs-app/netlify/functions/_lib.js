@@ -57,6 +57,15 @@ function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function hashOtp(code, licenseKey) {
   const pepper = env('OTP_PEPPER') || env('SUPABASE_SERVICE_ROLE_KEY') || 'pbi-labs-otp';
   return crypto
@@ -76,30 +85,60 @@ function webhookAuthorized(event) {
   if (!secret) return true;
   const query = (event.queryStringParameters && event.queryStringParameters.token) || '';
   const header = (event.headers && (event.headers['x-webhook-token'] || event.headers['X-Webhook-Token'])) || '';
-  return secretsMatch(query || header, secret);
+  const provided = String(query || header).trim();
+  if (!provided) return false;
+  return secretsMatch(provided, secret);
+}
+
+async function postGumroadVerify(params) {
+  const fetchImpl = global.fetch || require('node-fetch');
+  const formBody = new URLSearchParams(params).toString();
+  const response = await fetchImpl('https://api.gumroad.com/v2/licenses/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: formBody
+  });
+  const data = await response.json().catch(() => ({}));
+  return { status: response.status, data };
 }
 
 async function verifyWithGumroad(licenseKey) {
-  const slug = env('GUMROAD_PRODUCT_PERMALINK') || env('GUMROAD_PRODUCT_ID') || 'uuffyy';
-  const fetchImpl = global.fetch || require('node-fetch');
-  
-  const payload = {
-    product_permalink: slug,
-    license_key: String(licenseKey).trim(),
-    increment_uses_count: false
-  };
+  const productId = env('GUMROAD_PRODUCT_ID');
+  const productPermalink = env('GUMROAD_PRODUCT_PERMALINK');
+  const cleanKey = String(licenseKey || '').trim();
 
   try {
-    const response = await fetchImpl('https://api.gumroad.com/v2/licenses/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await response.json().catch(() => ({}));
-    return data;
+    let lastResult = null;
+
+    if (productId) {
+      const res = await postGumroadVerify({
+        product_id: productId,
+        license_key: cleanKey,
+        increment_uses_count: 'false'
+      });
+      if (res.data && res.data.success === true) return res.data;
+      lastResult = res.data;
+    }
+
+    if (productPermalink) {
+      const res = await postGumroadVerify({
+        product_permalink: productPermalink,
+        license_key: cleanKey,
+        increment_uses_count: 'false'
+      });
+      if (res.data && res.data.success === true) return res.data;
+      lastResult = res.data;
+    }
+
+    if (lastResult) {
+      console.warn('Gumroad verification rejected:', lastResult);
+      return lastResult;
+    }
+
+    return { success: false, networkError: true, error: 'Gumroad product configuration is missing.' };
   } catch (err) {
     console.error('Gumroad verification network error:', err);
-    return { success: false, error: err.message };
+    return { success: false, networkError: true, error: err.message };
   }
 }
 
@@ -110,7 +149,12 @@ function isTruthy(value) {
 function isLicenseDead(data) {
   if (!data || data.success !== true) return true;
   const purchase = data.purchase || {};
-  if (isTruthy(purchase.refunded) || isTruthy(purchase.chargebacked) || isTruthy(purchase.ended)) {
+  if (
+    isTruthy(purchase.refunded) ||
+    isTruthy(purchase.chargebacked) ||
+    isTruthy(purchase.disputed) ||
+    isTruthy(purchase.ended)
+  ) {
     return true;
   }
   if (purchase.subscription_ended_at) {
@@ -297,6 +341,7 @@ module.exports = {
   requirePost,
   getSupabaseAdmin,
   normalizeEmail,
+  escapeHtml,
   hashOtp,
   secretsMatch,
   webhookAuthorized,
